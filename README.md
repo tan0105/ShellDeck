@@ -79,7 +79,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 
 ## 更新
 
-当前版本暂不提供应用内更新配置。更新方式：退出程序，用新版本的 `runtime` 目录覆盖旧目录，保留顶层 `data`；入口有变化时替换整个文件夹并保留 `data`。更新签名清单和 helper 代码保留，后续再设计具体更新流程。发布签名私钥在 `.release-keys/private.pem`，必须单独备份。
+当前版本暂不提供应用内更新配置。更新方式：退出程序，用新版本的 `runtime` 目录覆盖旧目录，保留顶层 `data`；入口有变化时替换整个文件夹并保留 `data`。更新签名清单和 helper 代码保留，后续再设计具体更新流程。发布签名私钥在 `.release-keys/private.pem`。
+
+**私钥提交范围：**当前私有 Gitea 仓库已提交 `.release-keys/private.pem`。迁移到 GitHub 等外部仓库前，不能只在新提交里删除该文件，因为私钥仍留在 Git 历史中；必须使用不含密钥的新历史/新仓库，或改写历史并作废旧密钥，同时生成新密钥对并更新应用内置公钥。
 
 ## 已知限制（第一版）
 
