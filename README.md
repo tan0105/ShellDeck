@@ -82,6 +82,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 
 当前版本暂不提供应用内更新配置。更新方式：退出程序，用新版本的 `runtime` 目录覆盖旧目录，保留顶层 `data`；入口有变化时替换整个文件夹并保留 `data`。更新签名清单和 helper 代码保留，后续再设计具体更新流程。
 
+发布签名私钥保存在项目内 `.release-keys/private.pem`，该目录已在 `.gitignore`，**禁止提交 Git**；请另存一份密码本备份。签名默认读取该路径，也可用 `--key` 或 `SHELLDECK_RELEASE_KEY` 指定其他位置；应用内置公钥在 `electron/updater.cjs`。
 
 ## 已知限制（第一版）
 
