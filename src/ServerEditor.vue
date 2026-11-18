@@ -16,14 +16,15 @@ const form = reactive({
   note: '', tags: [], strictHostKey: true,
 })
 const newTag = ref('')
+const tagSearch = ref('')
 const localError = ref('')
 
-const visibleTags = computed(() => {
-  const result = []
-  for (const tag of [...props.knownTags, ...form.tags]) {
-    if (!result.some(item => item.toLowerCase() === String(tag).toLowerCase())) result.push(String(tag))
-  }
-  return result
+const availableTags = computed(() => {
+  const text = tagSearch.value.trim().toLowerCase()
+  return props.knownTags.filter(tag =>
+    !form.tags.some(selected => selected.toLowerCase() === tag.toLowerCase())
+    && (!text || tag.toLowerCase().includes(text))
+  )
 })
 
 watch(() => props.open, open => {
@@ -44,6 +45,7 @@ watch(() => props.open, open => {
     strictHostKey: server?.strictHostKey !== false,
   })
   newTag.value = ''
+  tagSearch.value = ''
   localError.value = ''
 })
 
@@ -133,8 +135,13 @@ function submit() {
           <div class="sd-row sd-row-top">
             <span>标签</span>
             <div class="sd-tagwrap">
-              <div class="sd-tags">
-                <button v-for="tag in visibleTags" :key="tag" type="button" class="sd-tag" :class="{ active: form.tags.some(item => item.toLowerCase() === tag.toLowerCase()) }" @click="toggleTag(tag)">{{ tag }}</button>
+              <div v-if="form.tags.length" class="sd-tags sd-tags-selected">
+                <button v-for="tag in form.tags" :key="tag" type="button" class="sd-tag active" @click="toggleTag(tag)">{{ tag }}</button>
+              </div>
+              <input v-model="tagSearch" class="sd-tagsearch" placeholder="搜索已有标签" />
+              <div class="sd-taglist">
+                <button v-for="tag in availableTags" :key="tag" type="button" class="sd-tag" @click="toggleTag(tag)">{{ tag }}</button>
+                <span v-if="!availableTags.length" class="sd-tagempty">{{ knownTags.length ? '没有匹配的标签' : '暂无已有标签' }}</span>
               </div>
               <div class="sd-tagadd">
                 <input v-model="newTag" maxlength="24" placeholder="新标签" @keydown.enter.prevent="addTag" />
@@ -142,7 +149,7 @@ function submit() {
               </div>
             </div>
           </div>
-          <label class="sd-row"><span>备注</span><input v-model="form.note" maxlength="500" @keydown.enter.prevent="submit" /></label>
+          <label class="sd-row sd-row-top"><span>备注</span><textarea v-model="form.note" class="sd-note" maxlength="5000" rows="3" spellcheck="false"></textarea></label>
         </div>
         <div class="sd-row">
           <span>主机指纹</span>

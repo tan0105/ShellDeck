@@ -14,6 +14,7 @@ const fileEntries = ref([])
 const fileBusy = ref(false)
 const fileError = ref('')
 const fileSudo = ref(false)
+const showHidden = ref(false)
 const fileDragActive = ref(false)
 const filePerm = ref(null)
 const connectState = ref('connecting')
@@ -26,6 +27,8 @@ const conflict = ref(null)
 const fileMenu = ref(null)
 const clipboard = ref(null)
 const overwriteDialog = ref(null)
+const sudoPasswordOverride = ref('')
+const sudoPrompt = ref({ open: false, password: '', error: '' })
 let unsubscribers = []
 let transferTimers = new Map()
 
@@ -38,10 +41,13 @@ const fileCrumbs = computed(() => {
   if (current === '/') return []
   return current.split('/').filter(Boolean).map((name, index, parts) => ({ name, path: '/' + parts.slice(0, index + 1).join('/') }))
 })
-const sortedEntries = computed(() => [...fileEntries.value].sort((a, b) => {
-  if ((a.type === 'dir') !== (b.type === 'dir')) return a.type === 'dir' ? -1 : 1
-  return a.name.localeCompare(b.name, 'zh-CN')
-}))
+const hiddenCount = computed(() => fileEntries.value.filter(entry => entry.name.startsWith('.')).length)
+const sortedEntries = computed(() => fileEntries.value
+  .filter(entry => showHidden.value || !entry.name.startsWith('.'))
+  .sort((a, b) => {
+    if ((a.type === 'dir') !== (b.type === 'dir')) return a.type === 'dir' ? -1 : 1
+    return a.name.localeCompare(b.name, 'zh-CN')
+  }))
 const activeTransfers = computed(() => transfers.value.filter(item => !item.done))
 
 function notify(message) { emit('notice', message) }
@@ -195,27 +201,58 @@ function joinPath(name) {
 }
 function localSudoKey() { return 'shelldeck-sudo-' + props.server.id }
 
-async function connectFiles() {
+async function connectFiles(targetOverride = undefined) {
+  const target = targetOverride !== undefined ? targetOverride : (filePath.value || '')
   closeFileMenu()
   closeFileSession()
   fileEntries.value = []
   filePerm.value = null
-  filePath.value = ''
-  filePathInput.value = ''
   fileError.value = ''
   connectState.value = 'connecting'
   fileBusy.value = true
+  if (!target) {
+    filePath.value = ''
+    filePathInput.value = ''
+  }
   try {
-    const info = await api.connect({ sessionId: props.sessionId, server: JSON.parse(JSON.stringify(props.server)), sudo: fileSudo.value })
+    const info = await api.connect({
+      sessionId: props.sessionId,
+      server: JSON.parse(JSON.stringify(props.server)),
+      sudo: fileSudo.value,
+      sudoPassword: fileSudo.value ? (sudoPasswordOverride.value || props.server.password || '') : '',
+    })
     connectState.value = 'ready'
-    await loadFiles(info.home)
-    if (fileSudo.value) notify('已切换到 root 文件模式')
+    const start = target || info.home
+    await loadFiles(start)
+    if (target && fileError.value) {
+      await loadFiles(info.home)
+      if (!fileError.value) notify('原路径不可访问，已回到 ' + info.home)
+    }
+    if (fileSudo.value && !fileError.value) notify('已切换到 root 文件模式')
   } catch (error) {
-    fileError.value = error.message || '连接失败'
+    const message = error.message || '连接失败'
+    fileError.value = message
     connectState.value = 'error'
+    if (fileSudo.value && /sudo|root 模式需要登录密码/i.test(message) && /密码|password|sorry|incorrect/i.test(message)) {
+      sudoPrompt.value = { open: true, password: '', error: '' }
+    }
   } finally {
     fileBusy.value = false
   }
+}
+
+function retrySudo() {
+  const password = sudoPrompt.value.password
+  if (!password) {
+    sudoPrompt.value = { ...sudoPrompt.value, error: '请输入 sudo 密码' }
+    return
+  }
+  sudoPasswordOverride.value = password
+  sudoPrompt.value = { open: false, password: '', error: '' }
+  connectFiles(filePath.value || null)
+}
+function cancelSudo() {
+  sudoPrompt.value = { open: false, password: '', error: '' }
 }
 
 function closeFileSession() {
@@ -253,9 +290,10 @@ function enterEntry(entry) {
 
 async function toggleSudo(event) {
   const value = Boolean(event.target.checked)
+  const currentPath = filePath.value
   fileSudo.value = value
   try { localStorage.setItem(localSudoKey(), value ? '1' : '0') } catch { /* Storage can be unavailable. */ }
-  await connectFiles()
+  await connectFiles(currentPath || null)
 }
 
 async function downloadFile(entry) {
@@ -506,8 +544,12 @@ function fileIcon(entry) {
   return '≡'
 }
 
+watch(showHidden, value => {
+  try { localStorage.setItem('shelldeck-show-hidden', value ? '1' : '0') } catch { /* storage unavailable */ }
+})
 onMounted(() => {
   try { fileSudo.value = localStorage.getItem(localSudoKey()) === '1' } catch { fileSudo.value = false }
+  try { showHidden.value = localStorage.getItem('shelldeck-show-hidden') === '1' } catch { showHidden.value = false }
   unsubscribers = [
     window.shellDeck.on('transfer:progress', payload => {
       if (payload.sessionId !== props.sessionId) return
@@ -562,6 +604,7 @@ onBeforeUnmount(() => {
       <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="pickFolder">上传文件夹</button>
       <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="newFolder">新建文件夹</button>
       <button type="button" class="ssh-secondary" :disabled="!filePath || fileBusy || connectState !== 'ready'" @click="openPerm(null)">本目录权限</button>
+      <label class="ssh-hidden-toggle"><input v-model="showHidden" type="checkbox" />显示隐藏文件</label>
       <span class="ssh-draghint">可拖文件进列表上传</span>
     </div>
     <div v-if="activeTransfers.length" class="ssh-transfers">
@@ -579,7 +622,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <p v-if="fileError" class="ssh-error">{{ fileError }} <button v-if="connectState === 'error'" type="button" class="ssh-link" @click="connectFiles">重新连接</button></p>
+    <p v-if="fileError" class="ssh-error">{{ fileError }} <button v-if="connectState === 'error'" type="button" class="ssh-link" @click="connectFiles()">重新连接</button></p>
     <div class="ssh-filetablewrap" @dragenter.prevent="onFileDragEnter" @dragover.prevent="onFileDragEnter" @dragleave.prevent="onFileDragLeave" @drop.prevent="onFileDrop" @contextmenu.prevent="openFileMenu($event, null)">
       <table class="ssh-filetable">
         <thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th>权限</th><th></th></tr></thead>
@@ -588,7 +631,7 @@ onBeforeUnmount(() => {
             <td colspan="5" class="ssh-fileempty">{{ connectState === 'connecting' ? '正在连接…' : '文件会话未连接' }}</td>
           </tr>
           <tr v-else-if="fileBusy && !sortedEntries.length"><td colspan="5" class="ssh-fileempty">正在读取…</td></tr>
-          <tr v-else-if="!sortedEntries.length"><td colspan="5" class="ssh-fileempty">目录为空</td></tr>
+          <tr v-else-if="!sortedEntries.length"><td colspan="5" class="ssh-fileempty">{{ hiddenCount && !showHidden ? '目录只有隐藏项，勾选“显示隐藏文件”查看' : '目录为空' }}</td></tr>
           <tr v-for="entry in sortedEntries" :key="entry.name" @contextmenu.prevent.stop="openFileMenu($event, entry)">
             <td><button type="button" class="ssh-filebtn" @click="enterEntry(entry)"><span>{{ fileIcon(entry) }}</span>{{ entry.name }}</button></td>
             <td>{{ entry.type === 'dir' ? '—' : formatSize(entry.size) }}</td>
@@ -647,6 +690,20 @@ onBeforeUnmount(() => {
           <div class="context-menu-sep"></div>
           <button type="button" @click="refreshFiles">刷新</button>
         </template>
+      </div>
+
+      <div v-if="sudoPrompt.open" class="um-overlay">
+        <section class="um-dialog ssh-confirm-dialog" role="dialog" aria-modal="true">
+          <button class="um-close" aria-label="关闭" @click="cancelSudo">×</button>
+          <h2>sudo 密码不正确</h2>
+          <p>已尝试服务器信息中保存的密码。请输入正确的 sudo 密码，仅用于本次 root 文件会话。</p>
+          <label class="ssh-sudo-password">密码<input v-model="sudoPrompt.password" type="text" autocomplete="off" @keydown.enter.prevent="retrySudo" /></label>
+          <p v-if="sudoPrompt.error" class="form-error">{{ sudoPrompt.error }}</p>
+          <div class="um-dialog-actions">
+            <button type="button" @click="cancelSudo">取消</button>
+            <button type="button" class="um-primary" @click="retrySudo">重试</button>
+          </div>
+        </section>
       </div>
 
       <div v-if="overwriteDialog" class="um-overlay">

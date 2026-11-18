@@ -159,7 +159,7 @@ function validateServer(input) {
     authType,
     privateKey,
     passphrase: String(input.passphrase ?? ''),
-    note: String(input.note || '').slice(0, 500),
+    note: String(input.note || '').slice(0, 5000),
     tags: normalizeTags(input.tags),
     strictHostKey: input.strictHostKey === false ? 0 : 1,
   }

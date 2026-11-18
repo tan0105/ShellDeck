@@ -109,34 +109,57 @@ function execRaw(client, command, input) {
   })
 }
 
-async function ensureSudo(session) {
-  if (session.sudoReady) return
+async function sudoNeedsPassword(session) {
+  if (session.sudoNeedsPassword !== undefined) return session.sudoNeedsPassword
   try {
-    await execRaw(session.client, "sudo -S -p '' -v", String(session.server.password || '') + '\n')
-    session.sudoReady = true
-  } catch (error) {
-    const detail = String(error.message || '').replace(/\r/g, '').trim()
-    throw new Error('无法获取 sudo 权限：' + (detail || '请确认账号有 sudo 权限，且服务器清单里的密码正确'))
+    await execRaw(session.client, 'sudo -n true')
+    session.sudoNeedsPassword = false
+  } catch {
+    session.sudoNeedsPassword = true
   }
+  return session.sudoNeedsPassword
+}
+
+function sudoPasswordError(error, needsPassword) {
+  if (needsPassword && /password|sorry|try again|incorrect|密码/i.test(String(error.message))) {
+    return new Error('sudo 密码不正确，请重新输入')
+  }
+  return error
 }
 
 async function runSudo(session, command, input) {
-  await ensureSudo(session)
+  const needsPassword = await sudoNeedsPassword(session)
   try {
-    return await execRaw(session.client, command, input)
+    if (!needsPassword) return await execRaw(session.client, command, input)
+    const password = String(session.sudoPassword || '')
+    if (!password) throw new Error('root 模式需要登录密码，请在服务器编辑里填写密码')
+    const sudoCommand = command.replace('sudo -n', "sudo -S -p ''")
+    const payload = Buffer.concat([
+      Buffer.from(password + '\n'),
+      Buffer.isBuffer(input) ? input : Buffer.from(input || ''),
+    ])
+    return await execRaw(session.client, sudoCommand, payload)
   } catch (error) {
-    if (/password is required|a terminal is required/i.test(String(error.message))) {
-      session.sudoReady = false
-      await ensureSudo(session)
-      return execRaw(session.client, command, input)
-    }
-    throw error
+    throw sudoPasswordError(error, needsPassword)
   }
 }
 
 async function sudoScript(session, script) {
-  const encoded = Buffer.from(script, 'utf8').toString('base64')
-  return runSudo(session, `printf %s ${encoded} | base64 -d | sudo -n sh`)
+  const needsPassword = await sudoNeedsPassword(session)
+  try {
+    if (!needsPassword) {
+      const encoded = Buffer.from(script, 'utf8').toString('base64')
+      return await execRaw(session.client, `printf %s ${encoded} | base64 -d | sudo -n sh`)
+    }
+    const password = String(session.sudoPassword || '')
+    if (!password) throw new Error('root 模式需要登录密码，请在服务器编辑里填写密码')
+    return await execRaw(session.client, "sudo -S -p '' sh", Buffer.concat([
+      Buffer.from(password + '\n'),
+      Buffer.from(script + '\n'),
+    ]))
+  } catch (error) {
+    throw sudoPasswordError(error, needsPassword)
+  }
 }
 
 async function getHome(session) {
@@ -153,12 +176,12 @@ async function getHome(session) {
   }
 }
 
-async function connect(sender, { sessionId, server, sudo = false }) {
+async function connect(sender, { sessionId, server, sudo = false, sudoPassword = '' }) {
   if (!sessionId || !server) throw new Error('文件会话参数不完整')
   close(sessionId)
   const id = String(sessionId)
   const client = new Client()
-  const session = { id, client, sender, server, sudo: Boolean(sudo), sftp: null, sudoReady: false, home: '/', closing: false }
+  const session = { id, client, sender, server, sudo: Boolean(sudo), sftp: null, home: '/', closing: false, sudoPassword: String(sudoPassword || server.password || '') }
   sessions.set(id, session)
 
   const host = String(server.host || '')
@@ -208,7 +231,12 @@ async function connect(sender, { sessionId, server, sudo = false }) {
     session.sftp.on('close', () => {
       if (!session.closing) close(id)
     })
-    if (session.sudo) await ensureSudo(session)
+    if (session.sudo) {
+      const needsPassword = await sudoNeedsPassword(session)
+      if (needsPassword && !session.sudoPassword) {
+        throw new Error('root 模式需要登录密码，请在服务器编辑里填写密码')
+      }
+    }
     session.home = await getHome(session)
     return { sessionId: id, home: session.home, sudo: session.sudo }
   } catch (error) {

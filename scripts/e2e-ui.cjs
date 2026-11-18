@@ -4,6 +4,7 @@ const { _electron: electron } = require('playwright-core')
 
 const root = path.join(__dirname, '..')
 const dataDir = path.join(root, '.e2e-ui-data')
+const userDataDir = path.join(root, '.e2e-ui-userdata')
 
 function log(step, value = '') {
   console.log(`[ui] ${step}${value ? ': ' + value : ''}`)
@@ -15,10 +16,11 @@ async function pageLabel(page) {
 
 async function main() {
   fs.rmSync(dataDir, { recursive: true, force: true })
+  fs.rmSync(userDataDir, { recursive: true, force: true })
   const packagedExe = process.env.SHELLDECK_UI_EXE || ''
   const app = await electron.launch({
     executablePath: packagedExe || path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe'),
-    args: packagedExe ? ['--no-sandbox'] : ['.', '--no-sandbox'],
+    args: packagedExe ? ['--no-sandbox', `--user-data-dir=${userDataDir}`] : ['.', '--no-sandbox', `--user-data-dir=${userDataDir}`],
     cwd: packagedExe ? path.dirname(packagedExe) : root,
     env: { ...process.env, SHELLDECK_DATA_DIR: dataDir, SHELLDECK_START_HIDDEN: '0' },
     timeout: 60000,
@@ -41,9 +43,11 @@ async function main() {
 
     const row = page.locator('.ssh-serverrow').first()
     await row.dblclick()
-    await page.waitForTimeout(400)
+    await page.waitForSelector('.sd-dialog', { timeout: 5000 })
+    await page.locator('.sd-dialog .um-close').click()
+    await page.waitForTimeout(300)
     if (await page.locator('.ssh-session-picker').count()) throw new Error('double-click still opens the session picker')
-    log('double-click no longer opens picker')
+    log('double-click opens server editor')
 
     await row.click({ button: 'right' })
     await page.waitForSelector('.server-menu', { timeout: 5000 })
@@ -124,9 +128,11 @@ async function main() {
 main().then(() => {
   log('done')
   fs.rmSync(dataDir, { recursive: true, force: true })
+  fs.rmSync(userDataDir, { recursive: true, force: true })
   process.exit(0)
 }).catch(error => {
   console.error('[ui] FAILED', error && error.stack ? error.stack : error)
   fs.rmSync(dataDir, { recursive: true, force: true })
+  fs.rmSync(userDataDir, { recursive: true, force: true })
   process.exit(1)
 })

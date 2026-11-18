@@ -73,20 +73,34 @@ async function main() {
     await inputs.nth(2).fill('12222')
     await inputs.nth(3).fill('tester')
     await inputs.nth(4).fill('testpw')
+    await page.locator('.sd-row', { hasText: '备注' }).locator('textarea').fill('文件菜单测试备注\n第二行')
     await page.locator('.sd-dialog .um-primary').click()
     await page.waitForSelector('.ssh-serverrow', { timeout: 10000 })
+    const rowText = await page.locator('.ssh-serverrow').first().textContent()
+    if (!rowText.includes('127.0.0.1') || !rowText.includes('文件菜单测试备注')) throw new Error('server row missing host/note')
+    if (rowText.includes('tester') || rowText.includes('12222')) throw new Error('server row still shows username/port')
 
     const row = page.locator('.ssh-serverrow').first()
     await row.click({ button: 'right' })
     await page.waitForSelector('.server-menu')
     const serverMenu = await page.locator('.server-menu').textContent()
-    for (const item of ['编辑服务器', '复制密码', '删除服务器']) {
+    for (const item of ['查看详情', '编辑服务器', '复制密码', '删除服务器']) {
       if (!serverMenu.includes(item)) throw new Error('server menu missing ' + item)
     }
+    await page.locator('.server-menu button', { hasText: '查看详情' }).click()
+    await page.waitForSelector('.server-detail-dialog')
+    const detailText = await page.locator('.server-detail-dialog').textContent()
+    for (const text of ['tester', '12222', '文件菜单测试备注', '第二行']) {
+      if (!detailText.includes(text)) throw new Error('server detail missing ' + text)
+    }
+    await page.locator('.server-detail-dialog .um-close').click()
+
+    await row.click({ button: 'right' })
+    await page.waitForSelector('.server-menu')
     await page.locator('.server-menu button', { hasText: '编辑服务器' }).click()
     await page.waitForSelector('.sd-dialog')
     await page.locator('.sd-dialog .um-close').click()
-    log('server right-click edit ok')
+    log('server detail and right-click edit ok')
 
     await row.click({ button: 'right' })
     await page.waitForSelector('.server-menu')
@@ -186,14 +200,14 @@ async function main() {
     const fonts = await page.evaluate(() => {
       const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)
       return {
-        server: size('.ssh-servername'),
+        server: size('.ssh-serverhost'),
         toolbar: size('.ssh-layout button'),
         fileTable: size('.filetile .ssh-filetable'),
         terminal: size('.termtile .xterm-rows'),
         overflow: document.documentElement.scrollWidth - innerWidth,
       }
     })
-    if (fonts.server < 13) throw new Error('server font too small: ' + fonts.server)
+    if (fonts.server < 13) throw new Error('server host font too small: ' + fonts.server)
     if (fonts.toolbar < 12) throw new Error('toolbar font too small: ' + fonts.toolbar)
     if (fonts.fileTable < 12) throw new Error('file table font too small: ' + fonts.fileTable)
     if (fonts.terminal < 15) throw new Error('terminal font too small: ' + fonts.terminal)
@@ -215,6 +229,19 @@ async function main() {
       }
       await window.shellDeck.sftp.close(sessionId)
     })
+
+    await page.evaluate(async () => {
+      for (const host of ['192.168.200.4', '10.6.80.71', '2.2.2.2', '172.16.0.9', 'example-host']) {
+        await window.shellDeck.servers.save({ name: `排序-${host}`, host, port: 22, username: 'u', password: 'p', authType: 'password' })
+      }
+    })
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.reload())
+    await page.waitForTimeout(800)
+    await page.waitForFunction(() => document.querySelectorAll('.ssh-serverhost').length === 6, null, { timeout: 10000 })
+    const hosts = await page.locator('.ssh-serverhost').allTextContents()
+    const expected = ['2.2.2.2', '10.6.80.71', '127.0.0.1', '172.16.0.9', '192.168.200.4', 'example-host']
+    if (JSON.stringify(hosts) !== JSON.stringify(expected)) throw new Error('server IP sort wrong: ' + JSON.stringify(hosts))
+    log('server IP ascending sort ok', hosts.join(','))
   } finally {
     await app.close().catch(() => {})
   }

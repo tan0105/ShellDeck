@@ -13,6 +13,8 @@ const emit = defineEmits(['notice', 'edit-server', 'new-server', 'delete-server'
 
 const query = ref('')
 const tagFilter = ref('')
+const tagMoreOpen = ref(false)
+const tagSearch = ref('')
 const selectedId = ref('')
 const sessions = ref([])
 const currentPage = ref(0)
@@ -24,11 +26,28 @@ const sessionsOpen = ref(false)
 const deleteTarget = ref(null)
 const newSessionTarget = ref(null)
 const serverMenu = ref(null)
+const detailTarget = ref(null)
 const manualScale = ref(null)
 
 const capacityMap = { 1: 1, 2: 2, 4: 4, 6: 6, 9: 9 }
 const autoScales = { 1: 1, 2: 1, 4: 0.95, 6: 0.9, 9: 0.85 }
 const capacity = computed(() => capacityMap[layout.value] || 4)
+const railTags = computed(() => {
+  const top = allTags.value.slice(0, 6)
+  if (tagFilter.value && !top.some(tag => tag.name === tagFilter.value)) {
+    const active = allTags.value.find(tag => tag.name === tagFilter.value)
+    if (active) return [...top, active]
+  }
+  return top
+})
+const moreTags = computed(() => {
+  const shown = new Set(railTags.value.map(tag => tag.name))
+  return allTags.value.filter(tag => !shown.has(tag.name))
+})
+const searchedMoreTags = computed(() => {
+  const text = tagSearch.value.trim().toLowerCase()
+  return moreTags.value.filter(tag => !text || tag.name.toLowerCase().includes(text))
+})
 const allTags = computed(() => {
   const map = new Map()
   props.servers.forEach(server => (server.tags || []).forEach(tag => {
@@ -39,13 +58,63 @@ const allTags = computed(() => {
   }))
   return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'))
 })
+function ipv4Value(host) {
+  const parts = String(host || '').trim().split('.')
+  if (parts.length !== 4) return null
+  let value = 0n
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null
+    const number = Number(part)
+    if (number > 255) return null
+    value = (value << 8n) | BigInt(number)
+  }
+  return value
+}
+function ipv6Value(host) {
+  let text = String(host || '').trim().replace(/^\[|\]$/g, '').toLowerCase()
+  if (!text.includes(':')) return null
+  const zone = text.indexOf('%')
+  if (zone >= 0) text = text.slice(0, zone)
+  const halves = text.split('::')
+  if (halves.length > 2) return null
+  let groups = halves[0] ? halves[0].split(':') : []
+  if (halves.length === 2) {
+    const tail = halves[1] ? halves[1].split(':') : []
+    const missing = 8 - groups.length - tail.length
+    if (missing < 0) return null
+    groups = [...groups, ...Array(missing).fill('0'), ...tail]
+  }
+  if (groups.length !== 8) return null
+  let value = 0n
+  for (const group of groups) {
+    if (!/^[0-9a-f]{1,4}$/.test(group)) return null
+    value = (value << 16n) | BigInt(parseInt(group, 16))
+  }
+  return value
+}
+function compareServers(a, b) {
+  const hostA = String(a.host || '').trim()
+  const hostB = String(b.host || '').trim()
+  const a4 = ipv4Value(hostA)
+  const b4 = ipv4Value(hostB)
+  const a6 = a4 === null ? ipv6Value(hostA) : null
+  const b6 = b4 === null ? ipv6Value(hostB) : null
+  const rankA = a4 !== null ? 0 : a6 !== null ? 1 : 2
+  const rankB = b4 !== null ? 0 : b6 !== null ? 1 : 2
+  if (rankA !== rankB) return rankA - rankB
+  if (rankA === 0 && a4 !== b4) return a4 < b4 ? -1 : 1
+  if (rankA === 1 && a6 !== b6) return a6 < b6 ? -1 : 1
+  const hostCompare = hostA.localeCompare(hostB, 'zh-CN', { numeric: true, sensitivity: 'base' })
+  if (hostCompare) return hostCompare
+  return a.name.localeCompare(b.name, 'zh-CN', { numeric: true, sensitivity: 'base' })
+}
 const filteredServers = computed(() => {
   const text = query.value.trim().toLowerCase()
   return props.servers.filter(server => {
     if (tagFilter.value && !(server.tags || []).some(tag => tag.toLowerCase() === tagFilter.value.toLowerCase())) return false
     if (!text) return true
     return [server.name, server.host, server.username, server.note, `${server.host}:${server.port}`, ...(server.tags || [])].join(' ').toLowerCase().includes(text)
-  })
+  }).sort(compareServers)
 })
 const selectedServer = computed(() => props.servers.find(server => server.id === selectedId.value) || null)
 const pageCount = computed(() => Math.max(1, Math.ceil(sessions.value.length / capacity.value)))
@@ -56,7 +125,7 @@ const allSessions = computed(() => sessions.value.map((session, index) => ({ ses
 
 watch(() => props.servers, list => {
   if (!list.length) { selectedId.value = ''; return }
-  if (!list.some(server => server.id === selectedId.value)) selectedId.value = list[0].id
+  if (!list.some(server => server.id === selectedId.value)) selectedId.value = [...list].sort(compareServers)[0].id
 }, { immediate: true })
 watch(() => sessions.value.length, () => {
   if (currentPage.value >= pageCount.value) currentPage.value = pageCount.value - 1
@@ -71,6 +140,15 @@ watch(currentPage, value => {
 })
 
 function showNotice(text) { emit('notice', text) }
+function selectTag(tag) {
+  tagFilter.value = tag
+  tagMoreOpen.value = false
+  tagSearch.value = ''
+}
+function toggleTagMore() {
+  tagMoreOpen.value = !tagMoreOpen.value
+  if (!tagMoreOpen.value) tagSearch.value = ''
+}
 function selectServer(server) {
   if (!server) return
   selectedId.value = server.id
@@ -185,7 +263,7 @@ function openServerMenu(server, event) {
   if (!server) return
   selectedId.value = server.id
   const width = 190
-  const height = 270
+  const height = 330
   serverMenu.value = {
     server,
     x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
@@ -227,6 +305,16 @@ function openFromServerMenu(kind) {
   serverMenu.value = null
   if (server) requestOpen(kind, server)
 }
+function detailFromMenu() {
+  const server = serverMenu.value?.server
+  serverMenu.value = null
+  if (server) detailTarget.value = server
+}
+function editDetail() {
+  const server = detailTarget.value
+  detailTarget.value = null
+  if (server) emit('edit-server', server)
+}
 function editServerFromMenu() {
   const server = serverMenu.value?.server
   serverMenu.value = null
@@ -266,15 +354,25 @@ function hasSession(server) { return sessions.value.some(session => session.serv
       <input v-model="query" class="ssh-railsearch" placeholder="搜索名称、地址、标签" />
       <div class="ssh-tagfilter">
         <button type="button" class="ssh-tagchip" :class="{ active: !tagFilter }" @click="tagFilter = ''">全部<b>{{ servers.length }}</b></button>
-        <button v-for="tag in allTags" :key="tag.name" type="button" class="ssh-tagchip" :class="{ active: tagFilter === tag.name }" @click="tagFilter = tagFilter === tag.name ? '' : tag.name">{{ tag.name }}<b>{{ tag.count }}</b></button>
+        <button v-for="tag in railTags" :key="tag.name" type="button" class="ssh-tagchip" :class="{ active: tagFilter === tag.name }" @click="tagFilter = tagFilter === tag.name ? '' : tag.name">{{ tag.name }}<b>{{ tag.count }}</b></button>
+        <button v-if="moreTags.length || tagMoreOpen" type="button" class="ssh-tagchip ssh-tagmore-btn" :class="{ active: tagMoreOpen }" @click="toggleTagMore">更多<b>{{ allTags.length }}</b></button>
+      </div>
+      <div v-if="tagMoreOpen" class="ssh-tagmore-panel">
+        <div class="ssh-tagmore-head"><span>更多标签</span><button type="button" @click="tagMoreOpen = false; tagSearch = ''">收起</button></div>
+        <input v-model="tagSearch" class="ssh-tagmore-search" placeholder="搜索标签" />
+        <div class="ssh-tagmore-list">
+          <button v-for="tag in searchedMoreTags" :key="tag.name" type="button" class="ssh-tagchip" :class="{ active: tagFilter === tag.name }" @click="selectTag(tag.name)">{{ tag.name }}<b>{{ tag.count }}</b></button>
+          <p v-if="!searchedMoreTags.length" class="ssh-railempty">没有匹配标签</p>
+        </div>
       </div>
       <button type="button" class="ssh-newserver ssh-newserver-top" @click="newServer">＋ 新建服务器</button>
       <div class="ssh-serverlist">
-        <div v-for="server in filteredServers" :key="server.id" class="ssh-serverrow" :class="{ selected: server.id === selectedId }" role="button" tabindex="0" title="单击选择，右键打开终端或文件" @click="selectServer(server)" @contextmenu.prevent="openServerMenu(server, $event)" @keydown.enter="selectServer(server)">
+        <div v-for="server in filteredServers" :key="server.id" class="ssh-serverrow" :class="{ selected: server.id === selectedId }" role="button" tabindex="0" title="单击选择，双击编辑，右键打开会话" @click="selectServer(server)" @dblclick="emit('edit-server', server)" @contextmenu.prevent="openServerMenu(server, $event)" @keydown.enter="selectServer(server)">
           <span class="ssh-serverdot" :class="{ active: hasSession(server) }"></span>
           <span class="ssh-servermain">
-            <span class="ssh-servername">{{ server.name }}<span v-for="tag in server.tags" :key="tag" class="ssh-servertag">{{ tag }}</span></span>
-            <span class="ssh-serverhost">{{ server.username }}@{{ server.host }}:{{ server.port }}</span>
+            <span class="ssh-serverhost" :title="server.host">{{ server.host }}</span>
+            <span class="ssh-servername" :title="server.tags.length ? `${server.name} · ${server.tags.join('、')}` : server.name">{{ server.name }}<span v-for="tag in server.tags.slice(0, 2)" :key="tag" class="ssh-servertag">{{ tag }}</span><span v-if="server.tags.length > 2" class="ssh-servertagmore" :title="server.tags.join('、')">+{{ server.tags.length - 2 }}</span></span>
+            <span v-if="server.note" class="ssh-servernote" :title="server.note">{{ server.note }}</span>
           </span>
         </div>
         <p v-if="!filteredServers.length" class="ssh-railempty">没有匹配的服务器</p>
@@ -368,6 +466,35 @@ function hasSession(server) { return sessions.value.some(session => session.serv
       </section>
     </div>
 
+    <div v-if="detailTarget" class="um-overlay">
+      <section class="um-dialog server-detail-dialog" role="dialog" aria-modal="true">
+        <button class="um-close" type="button" aria-label="关闭" @click="detailTarget = null">×</button>
+        <h2>{{ detailTarget.name }}</h2>
+        <p class="server-detail-host">{{ detailTarget.host }}:{{ detailTarget.port }}</p>
+        <div class="server-detail-grid">
+          <div class="server-detail-row"><span>账号</span><b>{{ detailTarget.username }}</b></div>
+          <div class="server-detail-row"><span>认证</span><b>{{ detailTarget.authType === 'key' ? 'SSH 私钥' : '密码' }}</b></div>
+          <div v-if="detailTarget.authType === 'key'" class="server-detail-row"><span>私钥口令</span><b>{{ detailTarget.passphrase ? '已设置' : '未设置' }}</b></div>
+          <div v-if="detailTarget.password" class="server-detail-row">
+            <span>{{ detailTarget.authType === 'key' ? '密码（sudo）' : '密码' }}</span>
+            <code>{{ detailTarget.password }}</code>
+            <button type="button" class="server-detail-copy" @click="copyPassword(detailTarget)">复制</button>
+          </div>
+          <div class="server-detail-row">
+            <span>标签</span>
+            <span v-if="detailTarget.tags?.length" class="server-detail-tags"><i v-for="tag in detailTarget.tags" :key="tag">{{ tag }}</i></span>
+            <b v-else>—</b>
+          </div>
+          <div class="server-detail-row"><span>主机指纹</span><b>{{ detailTarget.strictHostKey === false ? '不校验' : '严格校验' }}</b></div>
+          <div v-if="detailTarget.note" class="server-detail-row server-detail-note-row"><span>备注</span><p>{{ detailTarget.note }}</p></div>
+        </div>
+        <div class="um-dialog-actions">
+          <button type="button" @click="detailTarget = null">关闭</button>
+          <button type="button" class="um-primary" @click="editDetail">编辑</button>
+        </div>
+      </section>
+    </div>
+
     <div v-if="deleteTarget" class="um-overlay">
       <section class="um-dialog ssh-confirm-dialog" role="dialog" aria-modal="true">
         <button class="um-close" type="button" aria-label="关闭" @click="deleteTarget = null">×</button>
@@ -399,6 +526,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
         <button type="button" role="menuitem" @click="openFromServerMenu('terminal')"><span class="server-menu-icon">>_</span>打开终端</button>
         <button type="button" role="menuitem" @click="openFromServerMenu('file')"><span class="server-menu-icon file">F</span>打开文件</button>
         <div class="context-menu-sep"></div>
+        <button type="button" role="menuitem" @click="detailFromMenu">查看详情</button>
         <button type="button" role="menuitem" @click="editServerFromMenu">编辑服务器</button>
         <button v-if="serverMenu.server.password" type="button" role="menuitem" @click="copyPasswordFromMenu">复制密码</button>
         <div class="context-menu-sep"></div>

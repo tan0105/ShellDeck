@@ -12,9 +12,13 @@ const loading = ref(true)
 const appVersion = ref('')
 const theme = ref('light')
 const knownTags = computed(() => {
-  const tags = new Set()
-  for (const server of servers.value) for (const tag of server.tags || []) tags.add(tag)
-  return [...tags].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  const counts = new Map()
+  for (const server of servers.value) {
+    for (const tag of server.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'))
+    .map(([tag]) => tag)
 })
 
 const toast = ref({ visible: false, message: '', kind: 'info' })

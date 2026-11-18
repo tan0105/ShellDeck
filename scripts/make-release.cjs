@@ -12,7 +12,7 @@ const file = arg('file', path.join('release', 'ShellDeck', 'runtime', 'ShellDeck
 const url = arg('url', 'ShellDeck.exe')
 const notes = arg('notes', '')
 const outDir = arg('out', 'release')
-const keyPath = arg('key', path.join('.release-keys', 'private.pem'))
+const keyPath = arg('key', process.env.SHELLDECK_RELEASE_KEY || path.join('.release-keys', 'private.pem'))
 
 if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
   console.error('usage: npm run release -- --version 0.2.0 --file release/ShellDeck.exe --url https://.../ShellDeck.exe --notes "更新说明"')
