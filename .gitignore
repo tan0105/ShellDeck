@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+data/
+.release-keys/
+.e2e-*/
+.e2e-data/
+.dev-data/
+.e2e-tmp/
+screenshots/
+*.log

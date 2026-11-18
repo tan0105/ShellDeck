@@ -1,0 +1,187 @@
+/* SSH workspace */
+.ssh-main{height:100vh;min-height:100vh;max-height:100vh;overflow:hidden}
+.ssh-page-content{display:flex;flex-direction:column;min-height:0;padding-top:18px;padding-bottom:16px;overflow:hidden}
+.ssh-page-content .ssh-tools{flex:1;min-height:0;height:100%;overflow:hidden}
+.ssh-workspace{flex:1;display:grid;grid-template-columns:260px minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100%;max-height:100%;min-height:0;border:1px solid #e5eaf1;border-radius:12px;overflow:hidden;background:#f7f9fc}
+.ssh-rail{min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px 10px 10px;background:#fbfcfe;border-right:1px solid #e7ecf3}
+.ssh-railhead{display:flex;align-items:center;justify-content:space-between;padding:0 3px 8px}
+.ssh-railhead b{font-size:12.5px;color:#344156}
+.ssh-railhead span{font-size:10px;color:#9aa5b5;background:#f0f3f8;border-radius:10px;padding:2px 7px}
+.ssh-railsearch{height:31px;border:1px solid #e2e7ef;background:#fff;border-radius:7px;padding:0 9px;font-size:11px;color:#344156;outline:none;margin-bottom:8px}
+.ssh-railsearch:focus{border-color:#9bb0f4;box-shadow:0 0 0 3px rgba(47,91,234,.08)}
+.ssh-tagfilter{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.ssh-tagchip{display:flex;align-items:center;gap:4px;height:21px;border:1px solid #e6eaf0;background:#fff;border-radius:20px;color:#7d8baa;font-size:8.5px;padding:0 7px;cursor:pointer;font-family:inherit}
+.ssh-tagchip:hover{border-color:#b9c7f2;color:#2f5bea}
+.ssh-tagchip.active{border-color:#2f5bea;background:#eef3ff;color:#2f5bea}
+.ssh-tagchip b{font-weight:500;color:#a0a9b6}
+.ssh-tagchip.active b{color:#4169e9}
+.ssh-railactions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-bottom:7px}
+.ssh-railactions button{height:25px;border:1px solid #e3e8f0;background:#fff;border-radius:5px;color:#66748a;font-size:9px;cursor:pointer;font-family:inherit}
+.ssh-railactions button:hover{border-color:#b9c7f2;color:#2f5bea;background:#f7f9ff}
+.ssh-railhint{margin:0 0 7px;font-size:8px;line-height:1.55;color:#a0a9b6}
+.ssh-serverlist{flex:1;min-height:0;overflow:auto;padding-right:1px}
+.ssh-serverrow{display:flex;align-items:flex-start;gap:7px;width:100%;border:1px solid transparent;background:transparent;border-radius:8px;padding:8px 7px;margin-bottom:3px;cursor:pointer;text-align:left;font-family:inherit}
+.ssh-serverrow:hover{background:#f3f6fe}
+.ssh-serverrow.selected{background:#fff;border-color:#e3e8f4;box-shadow:0 4px 12px rgba(35,55,90,.06)}
+.ssh-serverdot{width:6px;height:6px;border-radius:50%;background:#57b98c;margin-top:5px;flex:none}
+.ssh-serverdot.idle{background:#c2cad6}
+.ssh-servermain{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ssh-servername{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#344156;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-servertag{font-size:8px;font-weight:500;color:#6c7fb7;background:#eef2ff;border-radius:3px;padding:1px 4px;flex:none;max-width:70px;overflow:hidden;text-overflow:ellipsis}
+.ssh-serverhost{font:9.5px ui-monospace,Consolas,monospace;color:#98a2b1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-forcenas{display:flex;align-items:center;gap:2px;flex:none;font-size:7.5px;color:#a1aab8;cursor:pointer;margin-top:1px}
+.ssh-forcenas input{width:11px;height:11px;margin:0;accent-color:#2f5bea}
+.ssh-newserver{width:100%;margin-top:4px;border:1px dashed #d8dfe9;background:transparent;color:#7d8baa;border-radius:7px;height:29px;font-size:10px;cursor:pointer;font-family:inherit}
+.ssh-newserver:hover{border-color:#b8c7ed;color:#2f5bea;background:#f7f9ff}
+.ssh-railempty{font-size:10px;color:#a0a9b6;text-align:center;padding:10px 0}
+.ssh-ws-main{min-width:0;min-height:0;display:flex;flex-direction:column;background:#eef1f6;overflow:hidden}
+.ssh-selbar{flex:none;min-height:52px;background:#fff;border-bottom:1px solid #e7ecf3;display:flex;align-items:center;gap:8px;padding:7px 12px;flex-wrap:wrap}
+.ssh-selcaption{font-size:8.5px;color:#a0a9b6;flex:none}
+.ssh-selicon{width:27px;height:27px;border-radius:7px;background:#eef2ff;color:#2f5bea;display:grid;place-items:center;font-size:10px;font-weight:700;flex:none}
+.ssh-selname{min-width:130px}
+.ssh-selname b{display:block;font-size:12px;color:#344156;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssh-selname small{display:block;font:10px ui-monospace,Consolas,monospace;color:#98a2b1;margin-top:2px}
+.ssh-forcecheck{display:flex;align-items:center;gap:5px;height:26px;border:1px solid #e6eaf1;background:#fff;border-radius:5px;padding:0 7px;font-size:9.5px;color:#6b778a;cursor:pointer;white-space:nowrap}
+.ssh-forcecheck.on{color:#a06a18;background:#fffaf0;border-color:#f0dfb8}
+.ssh-forcecheck input{width:12px;height:12px;margin:0;accent-color:#2f5bea}
+.ssh-routepill{font-size:9px;border-radius:20px;padding:2px 7px;white-space:nowrap}
+.ssh-routepill.nas{color:#a06a18;background:#fff3dc}
+.ssh-routepill.local{color:#43876c;background:#edf8f2}
+.ssh-pwdbox{display:flex;align-items:center;gap:4px;height:26px;border:1px solid #e6eaf1;background:#fafbfd;border-radius:5px;padding:0 7px;font:10px ui-monospace,Consolas,monospace;color:#6b778a}
+.ssh-pwdbox button{border:0;background:none;color:#6c7fb7;font-size:9.5px;cursor:pointer;padding:0 2px;font-family:inherit}
+.ssh-pwdbox button:hover{color:#2f5bea}
+.ssh-softbtn,.ssh-primarybtn{height:26px;border:1px solid #e3e8f0;background:#fff;color:#56637a;border-radius:5px;padding:0 8px;font-size:10px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.ssh-softbtn:hover{border-color:#b9c7f2;color:#2f5bea;background:#f7f9ff}
+.ssh-softbtn.danger{color:#b05c62;border-color:#f3dcde}
+.ssh-primarybtn{border:0;background:#2f5bea;color:#fff}
+.ssh-primarybtn:hover{background:#254ed0}
+.ssh-selspacer{flex:1}
+.ssh-routebar{flex:none;min-height:35px;display:flex;align-items:center;gap:9px;padding:5px 12px;background:#fff;border-bottom:1px solid #e7ecf3;flex-wrap:wrap}
+.ssh-bridge-mini{display:flex;align-items:center;gap:5px;flex:none;font-size:9px;color:#8b96a7}
+.ssh-bridge-mini strong{font-size:9.5px;color:#425066;font-weight:600}
+.ssh-bridge-mini .ssh-dot{width:6px;height:6px}
+.ssh-bridge-download{flex:none;height:23px;display:flex;align-items:center;border:1px solid #dfe5ef;background:#fafbfd;border-radius:5px;padding:0 7px;font-size:8.5px;color:#5d6b7f;text-decoration:none;white-space:nowrap}
+.ssh-bridge-download:hover{border-color:#b9c7f2;background:#f7f9ff;color:#2f5bea}
+.ssh-bridge-action{flex:none;height:23px;border:1px solid #dfe5ef;background:#fff;border-radius:5px;padding:0 7px;font-size:8.5px;color:#5d6b7f;cursor:pointer;font-family:inherit;white-space:nowrap} .ssh-bridge-action:hover{border-color:#b9c7f2;background:#f7f9ff;color:#2f5bea}
+.ssh-routepick{display:flex;align-items:center;border:1px solid #e3e8f0;border-radius:5px;overflow:hidden;flex:none}
+.ssh-routepick>span{font-size:9px;color:#98a2b1;padding:0 7px}
+.ssh-routepick button{height:23px;border:0;border-left:1px solid #e8ecf2;background:#fff;color:#6b778a;font-size:9px;padding:0 9px;cursor:pointer;font-family:inherit}
+.ssh-routepick button.active{background:#2f5bea;color:#fff}
+.ssh-routeinfo{flex:1;min-width:130px;font-size:9px;color:#98a2b1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-toolbar{flex:none;min-height:39px;display:flex;align-items:center;gap:10px;padding:5px 12px;background:#fbfcfe;border-bottom:1px solid #e7ecf3;flex-wrap:wrap}
+.ssh-layout{display:flex;align-items:center;gap:4px;flex:none}
+.ssh-layout>span{font-size:9px;color:#98a2b1}
+.ssh-layout button{width:24px;height:23px;border:1px solid #e3e8f0;background:#fff;color:#6b778a;border-radius:4px;font-size:9.5px;cursor:pointer;font-family:inherit}
+.ssh-layout button.active{background:#2f5bea;border-color:#2f5bea;color:#fff}
+.ssh-pagebar{display:flex;align-items:center;gap:4px;flex:none}
+.ssh-pagebar button{height:23px;min-width:24px;border:1px solid #e3e8f0;background:#fff;color:#6b778a;border-radius:4px;font-size:9.5px;padding:0 6px;cursor:pointer;font-family:inherit}
+.ssh-pagebar button:hover:not(:disabled){border-color:#b9c7f2;color:#2f5bea}
+.ssh-pagebar button:disabled{opacity:.4;cursor:default}
+.ssh-pagebar span{font-size:9px;color:#7d8baa;padding:0 2px}
+.ssh-toolhint{flex:1;font-size:9px;color:#9aa5b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-zoom{display:flex;align-items:center;gap:4px;flex:none;font-size:9px;color:#98a2b1}
+.ssh-zoom select{height:23px;border:1px solid #e3e8f0;background:#fff;color:#56637a;border-radius:4px;font-size:9px;padding:0 3px;outline:none}
+.ssh-zoom b{font-size:8.5px;font-weight:500;color:#7d8baa}
+.ssh-grid{flex:1;min-height:0;display:grid;gap:8px;padding:8px;overflow:hidden;background:#eef1f6}
+.ssh-grid.g1{grid-template-columns:1fr;grid-template-rows:1fr}
+.ssh-grid.g2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr}
+.ssh-grid.g4{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+.ssh-grid.g6{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+.ssh-grid.g9{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}
+.ssh-tile{position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(30,45,70,.06)}
+.ssh-tile.termtile{background:#0b0f15}
+.ssh-tile.filetile{background:#fff}
+.ssh-tile.session-hidden{display:none}
+.ssh-tile.maxed{grid-column:1/-1;grid-row:1/-1;z-index:2}
+.ssh-grid.maxed .ssh-tile:not(.maxed){display:none}
+.ssh-tile.focused{box-shadow:inset 0 0 0 2px #2f5bea,0 4px 14px rgba(30,45,70,.06)}
+.ssh-tile-inner{position:absolute;top:0;left:0;width:calc(100% / var(--tile-scale,1));height:calc(100% / var(--tile-scale,1));transform:scale(var(--tile-scale,1));transform-origin:top left;display:flex;flex-direction:column;min-width:0;min-height:0}
+.ssh-tilehead{flex:none;height:31px;display:flex;align-items:center;gap:5px;padding:0 7px;cursor:grab;user-select:none}
+.termtile .ssh-tilehead{background:#10161f;border-bottom:1px solid #1d2531;color:#c6d0de}
+.filetile .ssh-tilehead{background:#fbfcfe;border-bottom:1px solid #eef1f6;color:#425066}
+.ssh-draghandle{font-size:9px;color:#7d8baa;letter-spacing:-2px;flex:none;user-select:none}
+.ssh-ticon{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font:7px ui-monospace,Consolas,monospace;font-weight:700;flex:none}
+.ssh-ticon.terminal{background:#1a2738;color:#83d5a7;border:1px solid #2b3b53}
+.ssh-ticon.file{background:#fff3dc;color:#a06a18;font-size:8px}
+.ssh-tname{font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-routebadge{flex:none;font-size:7.5px;font-weight:500;padding:1px 4px;border-radius:4px;border:1px solid;white-space:nowrap}
+.termtile .ssh-routebadge.local{color:#9fc8ff;background:#152235;border-color:#28405f}
+.termtile .ssh-routebadge.nas{color:#e7c27a;background:#2a2113;border-color:#4a3a1d}
+.filetile .ssh-routebadge.local{color:#3b6ea9;background:#eef5ff;border-color:#d8e6fb}
+.filetile .ssh-routebadge.nas{color:#9a6516;background:#fff3dc;border-color:#f0dfb8}
+.ssh-tmeta{font-size:8px;color:#8390a2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ssh-theadspace{flex:1}
+.ssh-tbtn{width:19px;height:19px;border:0;background:transparent;color:#8492a5;border-radius:4px;font-size:10px;cursor:pointer;line-height:1;flex:none}
+.ssh-tbtn:hover{background:rgba(255,255,255,.1);color:#e1e9f4}
+.filetile .ssh-tbtn:hover{background:#eef2ff;color:#2f5bea}
+.ssh-tilebody{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.ssh-empty{border:1px dashed #d5dde8;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#9aa5b5;background:rgba(255,255,255,.35);cursor:pointer;font-family:inherit}.ssh-empty:hover{border-color:#b9c7f2;background:#fff;color:#5d6b7f}.ssh-empty:disabled{cursor:default;opacity:.55}.ssh-empty-plus{font-size:20px;line-height:1;color:#b3bdcb;font-weight:300}.ssh-empty-hint{font-size:9px;color:#98a3b3}.ssh-empty-state{grid-column:1/-1;grid-row:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:24px;text-align:center;border:1px dashed #d8dfe9;border-radius:8px;background:rgba(255,255,255,.32);color:#98a3b3}.ssh-empty-state-icon{width:40px;height:40px;border-radius:50%;background:#eef2ff;color:#4169e9;display:grid;place-items:center;font-size:23px;font-weight:300;margin-bottom:2px}.ssh-empty-state strong{font-size:13px;font-weight:600;color:#425066}.ssh-empty-state p{margin:0;font-size:10px;color:#9aa4b2}.ssh-empty-state-actions{display:flex;gap:8px;margin-top:7px}.ssh-empty-state-actions button{height:34px;min-width:96px;border:1px solid #e3e8f0;background:#fff;border-radius:7px;color:#56637a;font-size:12px;cursor:pointer;font-family:inherit}.ssh-empty-state-actions button.primary{background:#2f5bea;border-color:#2f5bea;color:#fff}.ssh-empty-state-actions button.primary:hover{background:#254ed0}.ssh-empty-state-actions button:not(.primary):hover{border-color:#b9c7f2;color:#2f5bea}.ssh-empty-state-actions button:disabled{opacity:.5;cursor:default}
+.ssh-empty:hover{border-color:#b9c7f2;background:#fff;color:#5d6b7f}
+.ssh-empty b{font-weight:500;color:#7d8baa}
+.ssh-empty-wide{grid-column:1/-1;grid-row:1/-1;display:grid;place-items:center;color:#98a3b3;font-size:12px;border:1px dashed #d5dde8;border-radius:8px;background:rgba(255,255,255,.3)}
+.ssh-terminal-embedded{display:flex;flex-direction:column;height:100%;min-height:0;background:#0f141c;color:#f4f7fb}
+.ssh-terminal-panel{display:flex;flex-direction:column;height:100%;min-height:0;padding:0}
+.ssh-terminal-embedded .ssh-termbar{flex:none;margin:0;padding:5px 7px;gap:4px;border-bottom:1px solid #1d2531}
+.ssh-terminal-embedded .ssh-termbar button{height:21px;padding:0 5px;font-size:8.5px;background:#17202d;border-color:#2a3748;color:#aab8cb}
+.ssh-terminal-embedded .ssh-termbar button:hover{background:#1d2a3b;color:#dbe7f7}
+.ssh-terminal-embedded .ssh-termbar button.ssh-sudobtn{background:#2a2113;border-color:#4a3a1d;color:#e7c27a}
+.ssh-terminal-embedded .ssh-termhint{display:none}
+.ssh-terminal-embedded .ssh-cmdbar{flex:none;margin:0;padding:5px 7px;gap:4px;border-bottom:1px solid #1d2531;flex-wrap:nowrap;overflow:auto}
+.ssh-terminal-embedded .ssh-cmdselect{height:22px;font-size:8.5px;background:#17202d;color:#c6d0de;border-color:#2a3748}
+.ssh-terminal-embedded .ssh-cmdrun,.ssh-terminal-embedded .ssh-cmdmanage{height:22px;font-size:8.5px;padding:0 7px}
+.ssh-terminal-embedded .pv-terminal{height:auto;flex:1;min-height:0;border-radius:0;padding:3px 5px}
+.ssh-file-session{display:flex;flex-direction:column;height:100%;min-height:0;background:#fff;padding:6px;gap:5px}
+.ssh-file-session .ssh-filepathbar{margin:0;gap:4px}
+.ssh-file-session .ssh-crumbs{font-size:9px;min-height:16px}
+.ssh-file-session .ssh-crumb{font-size:9px;padding:1px 4px}
+.ssh-file-session .ssh-pathrow{gap:4px}
+.ssh-file-session .ssh-pathinput{height:25px;font-size:9.5px;min-width:80px}
+.ssh-file-session .ssh-sudo{height:25px;font-size:9px;gap:4px}
+.ssh-file-session .ssh-sudo input{width:12px;height:12px;min-width:12px}
+.ssh-file-session .ssh-filebar{gap:4px;margin:0;flex-wrap:nowrap;overflow:auto}
+.ssh-file-session .ssh-filebar .ssh-secondary,.ssh-file-session .ssh-filebar .ssh-primary{height:24px;padding:0 6px;font-size:9px;border-radius:5px;flex:none}
+.ssh-file-session .ssh-draghint{display:none}
+.ssh-file-session .ssh-uploadprogress{gap:4px}
+.ssh-file-session .ssh-filetablewrap{min-height:0;max-height:none;flex:1;border-radius:6px}
+.ssh-file-session .ssh-filetable{font-size:9.5px}
+.ssh-file-session .ssh-filetable th{padding:4px 6px;font-size:8px}
+.ssh-file-session .ssh-filetable td{padding:4px 6px;font-size:9px}
+.ssh-file-session .ssh-filetable th:nth-child(2),.ssh-file-session .ssh-filetable td:nth-child(2){width:58px}
+.ssh-file-session .ssh-filetable th:nth-child(3),.ssh-file-session .ssh-filetable td:nth-child(3){width:110px}
+.ssh-file-session .ssh-filetable th:nth-child(4),.ssh-file-session .ssh-filetable td:nth-child(4){width:110px}
+.ssh-file-session .ssh-filebtn{font-size:9px;gap:4px}
+.ssh-file-session .ssh-fileactions{gap:1px;white-space:nowrap}
+.ssh-file-session .ssh-link{font-size:8.5px;padding:2px 3px}
+.ssh-file-conflict{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:12px;background:rgba(250,252,255,.92);backdrop-filter:blur(2px)}
+.ssh-file-conflictbox{width:min(300px,100%);background:#fff;border:1px solid #e4e8ef;border-radius:9px;box-shadow:0 12px 30px rgba(35,50,75,.14);padding:13px}
+.ssh-file-conflictbox b{display:block;font-size:11px;color:#344156;margin-bottom:5px}
+.ssh-file-conflictbox p{margin:0 0 10px;font-size:9.5px;line-height:1.6;color:#7d8baa}
+.ssh-file-conflictbox code{font:9px ui-monospace,Consolas,monospace;color:#425066;background:#f5f7fb;border-radius:3px;padding:1px 4px;margin-right:3px}
+.ssh-file-conflictactions{display:flex;justify-content:flex-end;gap:4px}
+.ssh-file-conflictactions button{height:23px;border:1px solid #e3e8f0;background:#fff;color:#56637a;border-radius:4px;font-size:9px;padding:0 7px;cursor:pointer;font-family:inherit}
+.ssh-file-conflictactions button.primary{background:#2f5bea;border-color:#2f5bea;color:#fff}
+.ssh-confirm-dialog{width:min(420px,calc(100vw - 32px))}.ssh-session-picker{width:min(440px,calc(100vw - 32px))}.ssh-session-target{margin:0 0 16px;font:11px ui-monospace,Consolas,monospace;color:#8b96a6;overflow-wrap:anywhere}.ssh-picker-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ssh-picker-actions button{min-height:66px;border:1px solid #e3e8f0;background:#fff;border-radius:8px;padding:10px;text-align:left;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:4px}.ssh-picker-actions button b{font-size:13px;color:#344156;font-weight:600}.ssh-picker-actions button span{font-size:10px;color:#98a3b3}.ssh-picker-actions button.terminal{border-color:#cfd9f7;background:#f4f7ff}.ssh-picker-actions button.terminal b{color:#315ee9}.ssh-picker-actions button:hover{border-color:#b9c7f2;box-shadow:0 4px 14px rgba(35,55,90,.08)}
+.ssh-sessions-dialog{width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto}
+.ssh-sessions-list{display:flex;flex-direction:column;gap:9px}
+.ssh-session-pagehead{font-size:10.5px;font-weight:600;color:#5a687c;margin-bottom:4px}
+.ssh-session-row{display:flex;align-items:center;gap:7px;width:100%;border:1px solid #eef1f6;background:#fbfcfe;border-radius:7px;padding:6px 8px;margin-bottom:4px;font-size:10.5px;color:#425066;cursor:pointer;text-align:left;font-family:inherit}
+.ssh-session-row:hover{border-color:#c9d5f4;background:#f3f6ff}
+.ssh-session-icon{flex:none;width:19px;height:19px;border-radius:4px;display:grid;place-items:center;background:#eef2ff;color:#4169e9;font:7px ui-monospace,Consolas,monospace}
+.ssh-session-row.file .ssh-session-icon{background:#fff3dc;color:#a06a18}
+.ssh-session-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssh-session-route{flex:none;font-size:8.5px;color:#98a3b3}
+@media(max-width:900px){
+  .ssh-workspace{grid-template-columns:220px minmax(0,1fr);height:auto;min-height:0}
+  .ssh-toolhint{display:none}
+  .ssh-grid.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .ssh-main{height:auto;min-height:calc(100vh - 58px);max-height:none;overflow:visible}
+  .ssh-page-content{display:block;min-height:0;padding:28px 0 26px;overflow:visible}
+  .ssh-page-content .ssh-tools{flex:none;height:auto;overflow:visible}
+  .ssh-workspace{display:flex;flex-direction:column;height:auto;max-height:none;min-height:0}
+  .ssh-rail{border-right:0;border-bottom:1px solid #e7ecf3;max-height:240px}
+  .ssh-serverlist{max-height:130px}
+  .ssh-ws-main{min-height:640px}
+  .ssh-grid{min-height:540px}
+}

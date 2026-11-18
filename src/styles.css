@@ -1,0 +1,1283 @@
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background: #eef1f6;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app-root {
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ssh-workspace {
+  height: 100%;
+  max-height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.ssh-serverdot {
+  background: #c2cad6;
+}
+
+.ssh-serverdot.active {
+  background: #57b98c;
+}
+
+.ssh-file-session .ssh-filebar {
+  flex-wrap: wrap;
+}
+
+.app-loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8792a2;
+  font-size: 13px;
+}
+
+.server-menu {
+  position: fixed;
+  z-index: 9;
+  width: 176px;
+  padding: 5px;
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(35, 50, 75, 0.16);
+}
+
+.server-menu-head {
+  margin-bottom: 4px;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid #f0f2f6;
+  font-size: 10px;
+  color: #98a2b1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-menu button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #425066;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.server-menu button:hover {
+  background: #f2f6ff;
+  color: #2f5bea;
+}
+
+.server-menu-icon {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4169e9;
+  font: 7px ui-monospace, Consolas, monospace;
+  flex: none;
+}
+
+.server-menu-icon.file {
+  background: #fff3dc;
+  color: #a06a18;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 9;
+  width: 210px;
+  padding: 5px;
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(35, 50, 75, 0.16);
+}
+
+.context-menu-head {
+  margin-bottom: 4px;
+  padding: 5px 9px 7px;
+  border-bottom: 1px solid #f0f2f6;
+  font-size: 11.5px;
+  color: #98a2b1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 31px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #425066;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.context-menu button:hover:not(:disabled) {
+  background: #f2f6ff;
+  color: #2f5bea;
+}
+
+.context-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.context-menu button.danger {
+  color: #b05c62;
+}
+
+.context-menu button.danger:hover:not(:disabled) {
+  background: #fff4f4;
+  color: #bd5962;
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: 4px 7px;
+  background: #f0f2f6;
+}
+
+/* Normal-size typography for the dense workspace */
+.ssh-railhead b { font-size: 14px; }
+.ssh-railhead span { font-size: 11px; }
+.ssh-railsearch { height: 34px; font-size: 13px; }
+.ssh-tagchip { height: 24px; font-size: 11px; padding: 0 9px; }
+.ssh-tagchip b { font-size: 10px; }
+.ssh-railactions button { height: 30px; font-size: 12px; }
+.ssh-railhint { font-size: 11px; line-height: 1.65; }
+.ssh-serverrow { padding: 9px 8px; }
+.ssh-servername { font-size: 13px; }
+.ssh-servertag { font-size: 10px; }
+.ssh-serverhost { font-size: 11.5px; }
+.ssh-newserver { height: 32px; font-size: 12px; }
+.ssh-newserver-top { margin: 0 0 7px; }
+.ssh-toolspacer { flex: 1; min-width: 12px; }
+.ssh-topactions { display: flex; align-items: center; gap: 6px; flex: none; }
+.ssh-topactions button {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid #e3e8f0;
+  border-radius: 5px;
+  background: #fff;
+  color: #56637a;
+  font-size: 11.5px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.ssh-topactions button:hover { border-color: #b9c7f2; color: #2f5bea; background: #f7f9ff; }
+.ssh-topactions button.theme-toggle { width: 30px; padding: 0; display: grid; place-items: center; }
+.theme-toggle svg { width: 16px; height: 16px; }
+.ssh-version {
+  flex: none;
+  margin-top: 6px;
+  padding: 8px 4px 0;
+  border-top: 1px solid #eef1f5;
+  color: #98a2b1;
+  font-size: 11.5px;
+  text-align: left;
+}
+.ssh-railempty { font-size: 12px; }
+.ssh-selbar { min-height: 60px; padding: 8px 14px; gap: 9px; }
+.ssh-selcaption { font-size: 10.5px; }
+.ssh-selicon { width: 30px; height: 30px; font-size: 12px; }
+.ssh-selname b { font-size: 14px; }
+.ssh-selname small { font-size: 11.5px; }
+.ssh-routepill { font-size: 11px; padding: 3px 8px; }
+.ssh-pwdbox { height: 30px; font-size: 12px; }
+.ssh-pwdbox button { font-size: 11px; }
+.ssh-softbtn, .ssh-primarybtn { height: 30px; font-size: 12px; padding: 0 10px; }
+.ssh-toolbar { min-height: 46px; padding: 7px 14px; gap: 12px; }
+.ssh-layout > span { font-size: 11px; }
+.ssh-layout button { width: 28px; height: 28px; font-size: 12px; }
+.ssh-pagebar button { height: 28px; min-width: 28px; font-size: 12px; padding: 0 8px; }
+.ssh-pagebar span { font-size: 11.5px; }
+.ssh-toolhint { font-size: 11px; }
+.ssh-zoom { font-size: 11.5px; }
+.ssh-zoom select { height: 28px; font-size: 11.5px; }
+.ssh-zoom b { font-size: 10.5px; }
+.ssh-tilehead { height: 36px; padding: 0 9px; gap: 6px; }
+.ssh-draghandle { font-size: 11px; }
+.ssh-ticon { width: 20px; height: 20px; font-size: 9px; }
+.ssh-tname { font-size: 12px; }
+.ssh-routebadge { font-size: 9px; padding: 2px 5px; }
+.ssh-tmeta { font-size: 10px; }
+.ssh-tbtn { width: 24px; height: 24px; font-size: 13px; }
+.ssh-terminal-embedded .ssh-termbar { padding: 6px 8px; gap: 5px; }
+.ssh-terminal-embedded .ssh-termbar button { height: 25px; padding: 0 7px; font-size: 11px; }
+.ssh-terminal-embedded .ssh-cmdbar { padding: 6px 8px; gap: 5px; }
+.ssh-terminal-embedded .ssh-cmdselect { height: 27px; font-size: 11px; }
+.ssh-terminal-embedded .ssh-cmdrun,
+.ssh-terminal-embedded .ssh-cmdmanage { height: 27px; font-size: 11px; padding: 0 9px; }
+.ssh-terminal-embedded .pv-terminal { padding: 4px 6px; }
+.ssh-file-session .ssh-crumbs { font-size: 11.5px; min-height: 20px; }
+.ssh-file-session .ssh-crumb { font-size: 11.5px; padding: 2px 5px; }
+.ssh-file-session .ssh-pathinput { height: 30px; font-size: 12px; }
+.ssh-file-session .ssh-secondary,
+.ssh-file-session .ssh-primary { height: 29px; font-size: 11.5px; padding: 0 8px; }
+.ssh-file-session .ssh-sudo { height: 29px; font-size: 11.5px; }
+.ssh-file-session .ssh-filetable { font-size: 12px; }
+.ssh-file-session .ssh-filetable th { padding: 6px 8px; font-size: 11px; }
+.ssh-file-session .ssh-filetable td { padding: 6px 8px; font-size: 11.5px; }
+.ssh-file-session .ssh-filebtn { font-size: 11.5px; gap: 5px; }
+.ssh-file-session .ssh-link { font-size: 10.5px; padding: 3px 4px; }
+.ssh-file-session .ssh-fileactions { gap: 3px; }
+.ssh-file-session .ssh-fileempty { font-size: 12px; }
+.ssh-transfer-head { font-size: 11px; }
+.ssh-transfer-meta { font-size: 10px; }
+.server-menu button { height: 32px; font-size: 12.5px; }
+.server-menu-head { font-size: 11.5px; }
+.sd-field { font-size: 12.5px; }
+.um-dialog .sd-field > input,
+.um-dialog .sd-field > select,
+.um-dialog .sd-field > textarea { font-size: 13px; }
+.sd-sub { font-size: 12px; }
+.settings-head { font-size: 11.5px; }
+.settings-head b { font-size: 13.5px; }
+.settings-info { font-size: 12px; }
+.settings-info code { font-size: 11px; }
+.settings-actions .ssh-softbtn,
+.settings-actions .ssh-primarybtn { font-size: 11.5px; }
+.settings-update-line { font-size: 11.5px; }
+.settings-update-line b { font-size: 13px; }
+.update-notes { font-size: 11.5px; }
+.settings-confirm p { font-size: 11.5px; }
+.source-row { font-size: 11.5px; }
+.source-name small { font-size: 10px; }
+.source-type { font-size: 9.5px; }
+.source-priority { font-size: 10px; }
+.cd-item { font-size: 11.5px; }
+.cd-kind { font-size: 9px; }
+.cd-editor .cd-body { font-size: 12.5px; }
+.app-toast { font-size: 13px; }
+
+.app-toast {
+  position: fixed;
+  z-index: 80;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 72vw;
+  padding: 9px 15px;
+  border-radius: 8px;
+  background: #263247;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(23, 35, 56, 0.25);
+  overflow-wrap: anywhere;
+}
+
+.app-toast.error {
+  background: #b3394a;
+}
+
+.app-toast.success {
+  background: #2f7d5e;
+}
+
+.sd-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.sd-sub {
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: #98a2b1;
+  line-height: 1.7;
+}
+
+.sd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px 12px;
+  margin-top: 13px;
+}
+
+.sd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+  color: #8e99a9;
+}
+
+.um-dialog .sd-field > input,
+.um-dialog .sd-field > select,
+.um-dialog .sd-field > textarea {
+  display: block;
+  width: 100%;
+  height: 36px;
+  border: 1px solid #e4e8ef;
+  border-radius: 6px;
+  padding: 0 10px;
+  margin: 0;
+  outline: none;
+  font-size: 12px;
+  color: #202b3c;
+  background: #fff;
+  font-family: inherit;
+}
+
+.um-dialog .sd-field > textarea {
+  height: auto;
+  padding: 8px 10px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.um-dialog .sd-field > input:focus,
+.um-dialog .sd-field > select:focus,
+.um-dialog .sd-field > textarea:focus {
+  border-color: #8299ee;
+  box-shadow: 0 0 0 3px #4169e910;
+}
+
+.sd-span2 {
+  grid-column: 1 / -1;
+}
+
+.sd-password {
+  display: flex;
+  gap: 6px;
+}
+
+.sd-password input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #e4e8ef;
+  border-radius: 6px;
+  padding: 0 10px;
+  outline: none;
+  font-size: 12px;
+}
+
+.sd-password button {
+  flex: none;
+  height: 36px;
+  border: 1px solid #e3e8f0;
+  background: #fff;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #66748a;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sd-password button:hover {
+  border-color: #b9c7f2;
+  color: #2f5bea;
+}
+
+.sd-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 13px;
+  font-size: 11px;
+  color: #6b778a;
+  cursor: pointer;
+}
+
+.sd-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #3863e8;
+}
+
+.cd-dialog {
+  width: min(780px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.cd-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+  min-height: 330px;
+}
+
+.cd-list {
+  min-height: 0;
+  border-right: 1px solid #eef1f5;
+  padding-right: 11px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cd-listhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8b96a6;
+  margin-bottom: 7px;
+}
+
+.cd-listhead b {
+  color: #425066;
+  font-size: 11.5px;
+}
+
+.cd-listhead .ssh-softbtn {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 9.5px;
+}
+
+.cd-items {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cd-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 7px 6px;
+  margin-bottom: 3px;
+  font-size: 10.5px;
+  color: #425066;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cd-item:hover {
+  background: #f5f8ff;
+}
+
+.cd-item.active {
+  border-color: #dbe4fb;
+  background: #f2f6ff;
+}
+
+.cd-kind {
+  flex: none;
+  font-size: 8px;
+  color: #6c7fb7;
+  background: #eef2ff;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.cd-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-remove {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: #aab3c1;
+  font-size: 12px;
+}
+
+.cd-remove:hover {
+  background: #fff0f0;
+  color: #bd5962;
+}
+
+.cd-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cd-editor .cd-body {
+  min-height: 150px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+}
+
+.cd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cd-actions > button {
+  height: 30px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+  color: #66748a;
+  border-radius: 5px;
+  padding: 0 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cd-actions > button.um-primary {
+  border: 0;
+  background: #3863e8;
+  color: #fff;
+}
+
+.cd-confirm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #f3dcde;
+  background: #fff8f8;
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 10.5px;
+  color: #8d5a60;
+}
+
+.cd-confirm span {
+  flex: 1;
+}
+
+.cd-confirm button {
+  height: 24px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0 7px;
+  font-size: 9.5px;
+  color: #66748a;
+  cursor: pointer;
+}
+
+.cd-confirm .um-danger-button {
+  border: 0;
+  background: #c34f5c;
+  color: #fff;
+}
+
+.settings-dialog {
+  width: min(780px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.settings-section {
+  border-top: 1px solid #eef1f5;
+  padding: 13px 0 4px;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10.5px;
+  color: #98a2b1;
+}
+
+.settings-head b {
+  font-size: 12.5px;
+  color: #344156;
+}
+
+.settings-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  font-size: 10.5px;
+  color: #8b96a6;
+}
+
+.settings-info code {
+  font: 10px ui-monospace, Consolas, monospace;
+  color: #425066;
+  background: #f7f9fc;
+  border-radius: 4px;
+  padding: 4px 7px;
+  overflow-wrap: anywhere;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.settings-actions .ssh-softbtn,
+.settings-actions .ssh-primarybtn {
+  height: 29px;
+  font-size: 10.5px;
+}
+
+.settings-auto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #7d8baa;
+  cursor: pointer;
+}
+
+.settings-auto input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #3863e8;
+}
+
+.settings-update-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+  font-size: 10.5px;
+  color: #7d8baa;
+}
+
+.settings-update-line b {
+  font-size: 12px;
+  color: #425066;
+}
+
+.settings-muted {
+  color: #a0a9b6;
+}
+
+.update-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: #eef1f5;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.update-progress i {
+  display: block;
+  height: 100%;
+  background: #315ee9;
+  transition: width 0.2s;
+}
+
+.update-notes {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  max-height: 130px;
+  overflow: auto;
+  border: 1px solid #eef1f5;
+  border-radius: 6px;
+  background: #fafbfd;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: #6b778a;
+  white-space: pre-wrap;
+}
+
+.settings-confirm {
+  margin-top: 9px;
+  padding: 9px 11px;
+  border: 1px solid #f3dcde;
+  border-radius: 7px;
+  background: #fff8f8;
+}
+
+.settings-confirm p {
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: #8d5a60;
+}
+
+.settings-confirm > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.settings-confirm button {
+  height: 26px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 10px;
+  color: #66748a;
+  cursor: pointer;
+}
+
+.settings-confirm .um-danger-button {
+  border: 0;
+  background: #c34f5c;
+  color: #fff;
+}
+
+.source-list {
+  margin-top: 8px;
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #eef1f5;
+  border-radius: 7px;
+  padding: 7px 9px;
+  margin-bottom: 5px;
+  font-size: 10.5px;
+  color: #425066;
+}
+
+.source-type {
+  flex: none;
+  font-size: 8.5px;
+  color: #4169e9;
+  background: #eef2ff;
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+
+.source-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-name small {
+  font: 9px ui-monospace, Consolas, monospace;
+  color: #98a2b3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-priority {
+  flex: none;
+  color: #98a2b3;
+  font-size: 9px;
+}
+
+.source-confirm {
+  display: flex;
+  gap: 3px;
+}
+
+.source-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.source-form .sd-field {
+  width: 150px;
+}
+
+.source-form .source-url {
+  flex: 1;
+  min-width: 260px;
+  width: auto;
+}
+
+.source-form .source-priority-field {
+  width: 96px;
+}
+
+.source-urlrow {
+  display: flex;
+  gap: 6px;
+}
+
+.source-urlrow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-urlrow .ssh-softbtn {
+  flex: none;
+  height: 36px;
+  font-size: 10px;
+}
+
+.source-add {
+  height: 36px;
+}
+
+.ssh-transfers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 118px;
+  overflow: auto;
+}
+
+.ssh-transfer {
+  border: 1px solid #eef1f5;
+  border-radius: 6px;
+  background: #fbfcfe;
+  padding: 5px 7px;
+}
+
+.ssh-transfer-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #5a6b82;
+}
+
+.ssh-transfer-head span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ssh-transfer-head b {
+  flex: none;
+  color: #4169e9;
+  font-weight: 600;
+}
+
+.ssh-transfer .ssh-uploadbar {
+  height: 4px;
+  margin-top: 4px;
+}
+
+.ssh-transfer-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 3px;
+  font-size: 8.5px;
+  color: #98a2b3;
+}
+
+.ssh-transfer-meta button {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: #b05c62;
+  font-size: 8.5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ssh-file-session .ssh-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+}
+
+/* IntelliJ-style dark theme */
+html.theme-dark {
+  color-scheme: dark;
+  background: #2b2b2b;
+}
+
+html.theme-dark body,
+html.theme-dark #app,
+html.theme-dark .app-root {
+  background: #2b2b2b;
+  color: #a9b7c6;
+}
+
+html.theme-dark .app-loading { color: #808080; }
+html.theme-dark .ssh-workspace { background: #2b2b2b; border-color: #3c3f41; }
+html.theme-dark .ssh-rail { background: #3c3f41; border-color: #323232; }
+html.theme-dark .ssh-railhead b { color: #bbbbbb; }
+html.theme-dark .ssh-railhead span { background: #4a4d4f; color: #a9b7c6; }
+html.theme-dark .ssh-railsearch,
+html.theme-dark .ssh-pathinput,
+html.theme-dark .ssh-nameinput,
+html.theme-dark .ssh-perminput input,
+html.theme-dark .ssh-param-dialog input,
+html.theme-dark .um-dialog label > input:not([type=checkbox]),
+html.theme-dark .um-dialog .sd-field > input,
+html.theme-dark .um-dialog .sd-field > select,
+html.theme-dark .um-dialog .sd-field > textarea,
+html.theme-dark .sd-password input {
+  background: #45494a;
+  border-color: #5a5a5a;
+  color: #bbbbbb;
+}
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder { color: #808080; }
+html.theme-dark .ssh-railsearch:focus,
+html.theme-dark .ssh-pathinput:focus,
+html.theme-dark .ssh-nameinput:focus { border-color: #4a88c7; box-shadow: 0 0 0 3px rgba(74, 136, 199, 0.2); }
+html.theme-dark .ssh-tagchip { background: #4a4d4f; border-color: #555; color: #a9b7c6; }
+html.theme-dark .ssh-tagchip:hover { border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .ssh-tagchip.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .ssh-tagchip b { color: #9aa5b1; }
+html.theme-dark .ssh-tagchip.active b { color: #cfe0ff; }
+html.theme-dark .ssh-serverrow { border-color: transparent; }
+html.theme-dark .ssh-serverrow:hover { background: #4a4d4f; }
+html.theme-dark .ssh-serverrow.selected { background: #4a4d4f; border-color: #5a5a5a; box-shadow: none; }
+html.theme-dark .ssh-servername { color: #dddddd; }
+html.theme-dark .ssh-servertag { background: #4a5054; color: #a9b7c6; }
+html.theme-dark .ssh-serverhost { color: #808080; }
+html.theme-dark .ssh-newserver { background: transparent; border-color: #5a5a5a; color: #a9b7c6; }
+html.theme-dark .ssh-newserver:hover { background: #4a4d4f; border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .ssh-railempty { color: #808080; }
+html.theme-dark .ssh-version { border-color: #4a4a4a; color: #808080; }
+
+html.theme-dark .ssh-ws-main { background: #2b2b2b; }
+html.theme-dark .ssh-toolbar { background: #3c3f41; border-color: #323232; }
+html.theme-dark .ssh-layout > span,
+html.theme-dark .ssh-zoom,
+html.theme-dark .ssh-zoom b,
+html.theme-dark .ssh-toolhint,
+html.theme-dark .ssh-pagebar span { color: #808080; }
+html.theme-dark .ssh-layout button,
+html.theme-dark .ssh-pagebar button,
+html.theme-dark .ssh-zoom select,
+html.theme-dark .ssh-topactions button {
+  background: #4c5052;
+  border-color: #606366;
+  color: #bbbbbb;
+}
+html.theme-dark .ssh-layout button:hover,
+html.theme-dark .ssh-pagebar button:hover:not(:disabled),
+html.theme-dark .ssh-topactions button:hover,
+html.theme-dark .ssh-zoom select:hover {
+  background: #5a5d5e;
+  border-color: #4a88c7;
+  color: #d6e4ff;
+}
+html.theme-dark .ssh-layout button.active { background: #4a88c7; border-color: #4a88c7; color: #ffffff; }
+html.theme-dark .ssh-pagebar button:disabled { opacity: 0.4; }
+
+html.theme-dark .ssh-grid { background: #2b2b2b; }
+html.theme-dark .ssh-empty,
+html.theme-dark .ssh-empty-state {
+  background: #313335;
+  border-color: #555;
+  color: #808080;
+}
+html.theme-dark .ssh-empty:hover { background: #3c3f41; border-color: #4a88c7; color: #a9b7c6; }
+html.theme-dark .ssh-empty-state strong { color: #bbbbbb; }
+html.theme-dark .ssh-empty-state p { color: #808080; }
+html.theme-dark .ssh-empty-state-icon { background: #3c3f41; color: #4a88c7; }
+html.theme-dark .ssh-empty-state-actions button { background: #4c5052; border-color: #606366; color: #bbbbbb; }
+html.theme-dark .ssh-empty-state-actions button.primary { background: #4a88c7; border-color: #4a88c7; color: #fff; }
+
+html.theme-dark .filetile { background: #2b2b2b; }
+html.theme-dark .filetile .ssh-tilehead { background: #3c3f41; border-color: #323232; color: #bbbbbb; }
+html.theme-dark .ssh-tname { color: #dddddd; }
+html.theme-dark .ssh-tmeta { color: #808080; }
+html.theme-dark .ssh-draghandle { color: #808080; }
+html.theme-dark .ssh-tbtn { color: #a9b7c6; }
+html.theme-dark .filetile .ssh-tbtn:hover { background: #4a4d4f; color: #d6e4ff; }
+html.theme-dark .termtile .ssh-tilehead { background: #1e1f22; border-color: #323232; color: #a9b7c6; }
+html.theme-dark .ssh-ticon.file { background: #4a4030; color: #d6a35c; }
+html.theme-dark .ssh-ticon.terminal { background: #214283; color: #9fc8ff; border-color: #3a5a90; }
+
+html.theme-dark .ssh-file-session { background: #2b2b2b; color: #a9b7c6; }
+html.theme-dark .ssh-file-session .ssh-crumb { color: #a9b7c6; }
+html.theme-dark .ssh-file-session .ssh-crumb:hover { color: #7fb2ff; background: #3c3f41; }
+html.theme-dark .ssh-crumbsep { color: #606366; }
+html.theme-dark .ssh-file-session .ssh-secondary,
+html.theme-dark .ssh-file-session .ssh-primary {
+  background: #4c5052;
+  border-color: #606366;
+  color: #bbbbbb;
+}
+html.theme-dark .ssh-file-session .ssh-primary { background: #4a88c7; border-color: #4a88c7; color: #fff; }
+html.theme-dark .ssh-file-session .ssh-secondary:hover { background: #5a5d5e; border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .ssh-sudo { color: #a9b7c6; }
+html.theme-dark .ssh-rootbadge { background: #8f4a42; color: #fff; }
+html.theme-dark .ssh-filetablewrap { border-color: #4a4a4a; background: #2b2b2b; }
+html.theme-dark .ssh-filetable th { background: #3c3f41; color: #a9b7c6; }
+html.theme-dark .ssh-filetable td { border-color: #424242; color: #a9b7c6; }
+html.theme-dark .ssh-filetable tbody tr:hover { background: #323232; }
+html.theme-dark .ssh-filebtn { color: #a9b7c6; }
+html.theme-dark .ssh-filebtn:hover { color: #7fb2ff; }
+html.theme-dark .ssh-filemode { color: #808080; }
+html.theme-dark .ssh-link { color: #82a6d4; }
+html.theme-dark .ssh-link:hover { color: #a8c7ff; background: #3c3f41; }
+html.theme-dark .ssh-link.danger:hover { color: #ff8a8a; background: #4a3232; }
+html.theme-dark .ssh-fileempty { color: #808080; }
+html.theme-dark .ssh-error,
+html.theme-dark .form-error { color: #e06c75; }
+html.theme-dark .ssh-droplayer { background: rgba(33, 66, 131, 0.92); border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .ssh-file-conflict { background: rgba(43, 43, 43, 0.92); }
+html.theme-dark .ssh-file-conflictbox { background: #3c3f41; border-color: #555; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); }
+html.theme-dark .ssh-file-conflictbox b { color: #dddddd; }
+html.theme-dark .ssh-file-conflictbox p { color: #a9b7c6; }
+html.theme-dark .ssh-file-conflictbox code { background: #45494a; color: #bbbbbb; }
+html.theme-dark .ssh-file-conflictactions button { background: #4c5052; border-color: #606366; color: #bbbbbb; }
+html.theme-dark .ssh-file-conflictactions button.primary { background: #4a88c7; border-color: #4a88c7; color: #fff; }
+html.theme-dark .ssh-transfer { background: #313335; border-color: #4a4a4a; }
+html.theme-dark .ssh-transfer-head { color: #a9b7c6; }
+html.theme-dark .ssh-transfer-head b { color: #7fb2ff; }
+html.theme-dark .ssh-transfer-meta { color: #808080; }
+html.theme-dark .ssh-uploadbar { background: #4a4a4a; }
+html.theme-dark .ssh-uploadbar i { background: #4a88c7; }
+
+html.theme-dark .ssh-termbar button,
+html.theme-dark .ssh-cmdrun,
+html.theme-dark .ssh-cmdmanage {
+  background: #3c3f41;
+  border-color: #555;
+  color: #bbbbbb;
+}
+html.theme-dark .ssh-termbar button:hover { background: #4a4d4f; color: #fff; }
+html.theme-dark .ssh-sudobtn { background: #4a4030; border-color: #6a5a30; color: #d6a35c; }
+html.theme-dark .ssh-cmdselect { background: #45494a; border-color: #5a5a5a; color: #bbbbbb; }
+
+html.theme-dark .um-overlay { background: rgba(0, 0, 0, 0.55); }
+html.theme-dark .um-dialog { background: #3c3f41; color: #a9b7c6; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5); }
+html.theme-dark .um-dialog h2 { color: #dddddd; }
+html.theme-dark .um-dialog > p,
+html.theme-dark .um-dialog label,
+html.theme-dark .sd-field,
+html.theme-dark .sd-sub,
+html.theme-dark .settings-head,
+html.theme-dark .settings-info,
+html.theme-dark .settings-muted,
+html.theme-dark .ssl-hint,
+html.theme-dark .update-notes,
+html.theme-dark .ssh-filedir,
+html.theme-dark .ssh-deletemsg,
+html.theme-dark .ssh-permhint { color: #a9b7c6; }
+html.theme-dark .um-close { color: #999; }
+html.theme-dark .um-dialog-actions > button:first-child,
+html.theme-dark .cd-actions > button,
+html.theme-dark .settings-confirm button {
+  background: #4c5052;
+  border-color: #606366;
+  color: #bbbbbb;
+}
+html.theme-dark .um-dialog-actions button,
+html.theme-dark .um-primary,
+html.theme-dark .cd-actions > button.um-primary {
+  background: #4a88c7;
+  color: #fff;
+}
+html.theme-dark .um-danger-button,
+html.theme-dark .cd-confirm .um-danger-button,
+html.theme-dark .settings-confirm .um-danger-button { background: #c75450; color: #fff; }
+html.theme-dark .settings-info code { background: #45494a; color: #bbbbbb; }
+html.theme-dark .settings-confirm,
+html.theme-dark .cd-confirm { background: #4a3232; border-color: #6a4a4a; color: #e0b4b4; }
+html.theme-dark .settings-confirm p { color: #e0b4b4; }
+html.theme-dark .update-progress { background: #4a4a4a; }
+html.theme-dark .update-progress i { background: #4a88c7; }
+html.theme-dark .cd-list { border-color: #4a4a4a; }
+html.theme-dark .cd-item { color: #a9b7c6; }
+html.theme-dark .cd-item:hover { background: #4a4d4f; }
+html.theme-dark .cd-item.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .cd-kind { background: #4a5054; color: #a9b7c6; }
+html.theme-dark .settings-section { border-color: #4a4a4a; }
+html.theme-dark .settings-auto { color: #a9b7c6; }
+html.theme-dark .ssh-editor { background: #2b2b2b; border-color: #555; color: #a9b7c6; }
+html.theme-dark .ssh-permpresets .pv-pick { background: #4c5052; border-color: #606366; color: #bbbbbb; }
+html.theme-dark .ssh-permpresets .pv-pick.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
+
+html.theme-dark .context-menu,
+html.theme-dark .server-menu { background: #3c3f41; border-color: #555; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); }
+html.theme-dark .context-menu-head,
+html.theme-dark .server-menu-head { color: #808080; border-color: #4a4a4a; }
+html.theme-dark .context-menu button,
+html.theme-dark .server-menu button { color: #a9b7c6; }
+html.theme-dark .context-menu button:hover:not(:disabled),
+html.theme-dark .server-menu button:hover { background: #214283; color: #d6e4ff; }
+html.theme-dark .context-menu button.danger { color: #e06c75; }
+html.theme-dark .context-menu button.danger:hover:not(:disabled) { background: #4a3232; color: #ff9a9a; }
+html.theme-dark .context-menu-sep { background: #4a4a4a; }
+html.theme-dark .server-menu-icon { background: #4a5054; color: #a9b7c6; }
+html.theme-dark .server-menu-icon.file { background: #4a4030; color: #d6a35c; }
+
+html.theme-dark .app-toast { background: #1e1f22; color: #dfe1e5; }
+html.theme-dark * { scrollbar-color: #555 #2b2b2b; }
+html.theme-dark ::-webkit-scrollbar-thumb { background: #555; }
+html.theme-dark ::-webkit-scrollbar-track { background: #2b2b2b; }
+
+/* Compact server editor */
+.sd-dialog { width: min(520px, calc(100vw - 32px)); padding: 20px 22px; }
+.sd-dialog h2 { margin-bottom: 3px; font-size: 17px; }
+.sd-dialog .sd-sub { margin-bottom: 3px; font-size: 11.5px; line-height: 1.5; }
+.sd-dialog .sd-grid { gap: 7px 10px; margin-top: 8px; }
+.sd-dialog .sd-field { gap: 3px; font-size: 11.5px; }
+.sd-dialog .um-dialog .sd-field > input,
+.sd-dialog .sd-field > input,
+.sd-dialog .sd-field > select,
+.sd-dialog .sd-field > textarea { height: 32px; padding: 0 8px; font-size: 12.5px; }
+.sd-dialog .sd-field > textarea { padding: 6px 8px; }
+.sd-dialog .sd-check { margin-top: 8px; font-size: 11px; }
+.sd-dialog .um-dialog-actions { margin-top: 12px; }
+.sd-auth { display: flex; height: 32px; border: 1px solid #e4e8ef; border-radius: 6px; overflow: hidden; background: #f7f9fc; }
+.sd-auth button { flex: 1; border: 0; background: transparent; color: #66748a; font-size: 12px; cursor: pointer; font-family: inherit; }
+.sd-auth button + button { border-left: 1px solid #e4e8ef; }
+.sd-auth button.active { background: #3863e8; color: #fff; }
+.sd-key { min-height: 92px !important; max-height: 150px; font-family: ui-monospace, Consolas, monospace; font-size: 11px !important; line-height: 1.45; }
+.sd-keyactions { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #98a2b1; }
+.sd-keyactions .ssh-softbtn { height: 28px; font-size: 11px; padding: 0 8px; }
+.sd-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
+.sd-tag { height: 24px; border: 1px solid #e6eaf0; border-radius: 12px; background: #fff; color: #7d8baa; font-size: 11px; padding: 0 9px; cursor: pointer; font-family: inherit; }
+.sd-tag:hover { border-color: #b9c7f2; color: #2f5bea; }
+.sd-tag.active { background: #eef3ff; border-color: #4a88c7; color: #2f5bea; }
+.sd-tagadd { display: flex; gap: 6px; margin-top: 2px; }
+.sd-tagadd input { flex: 1; min-width: 0; height: 30px; border: 1px solid #e4e8ef; border-radius: 6px; padding: 0 8px; font-size: 12px; outline: none; }
+.sd-tagadd input:focus { border-color: #8299ee; box-shadow: 0 0 0 3px #4169e910; }
+.sd-tagadd .ssh-softbtn { height: 30px; font-size: 11px; padding: 0 9px; }
+
+html.theme-dark .sd-auth { background: #313335; border-color: #555; }
+html.theme-dark .sd-auth button { color: #a9b7c6; }
+html.theme-dark .sd-auth button + button { border-color: #555; }
+html.theme-dark .sd-auth button.active { background: #4a88c7; color: #fff; }
+html.theme-dark .sd-key { background: #2b2b2b; border-color: #555; color: #a9b7c6; }
+html.theme-dark .sd-keyactions { color: #808080; }
+html.theme-dark .sd-tag { background: #4c5052; border-color: #606366; color: #a9b7c6; }
+html.theme-dark .sd-tag:hover { border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .sd-tag.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
+html.theme-dark .sd-tagadd input { background: #45494a; border-color: #5a5a5a; color: #bbbbbb; }
+
+/* Dark secondary buttons */
+html.theme-dark .ssh-softbtn {
+  background: #4c5052;
+  border-color: #606366;
+  color: #bbbbbb;
+}
+html.theme-dark .ssh-softbtn:hover {
+  background: #5a5d5e;
+  border-color: #4a88c7;
+  color: #d6e4ff;
+}
+html.theme-dark .ssh-softbtn.danger { color: #e06c75; border-color: #6a4a4a; }
+html.theme-dark .ssh-primarybtn { background: #4a88c7; border-color: #4a88c7; color: #ffffff; }
+
+/* Tighter server editor spacing */
+.sd-dialog { padding: 16px 18px; }
+.sd-dialog h2 { font-size: 16px; margin-bottom: 2px; }
+.sd-dialog .sd-sub { font-size: 11px; margin-bottom: 2px; line-height: 1.4; }
+.sd-dialog .sd-grid { gap: 5px 10px; margin-top: 6px; }
+.sd-dialog .sd-field { gap: 2px; font-size: 11px; }
+.sd-dialog .sd-field > input,
+.sd-dialog .sd-field > select,
+.sd-dialog .sd-field > textarea { height: 30px; padding: 0 8px; font-size: 12px; }
+.sd-dialog .sd-field > textarea { padding: 5px 8px; }
+.sd-dialog .sd-key { min-height: 78px !important; max-height: 130px; }
+.sd-dialog .sd-auth { height: 30px; }
+.sd-dialog .sd-keyactions { gap: 6px; font-size: 10px; }
+.sd-dialog .sd-keyactions .ssh-softbtn { height: 26px; font-size: 10.5px; padding: 0 7px; }
+.sd-dialog .sd-tags { gap: 3px; min-height: 20px; }
+.sd-dialog .sd-tag { height: 22px; font-size: 10.5px; padding: 0 8px; }
+.sd-dialog .sd-tagadd { gap: 5px; margin-top: 0; }
+.sd-dialog .sd-tagadd input { height: 28px; font-size: 11.5px; }
+.sd-dialog .sd-tagadd .ssh-softbtn { height: 28px; font-size: 10.5px; padding: 0 8px; }
+.sd-dialog .sd-check { margin-top: 6px; font-size: 10.5px; }
+.sd-dialog .um-dialog-actions { margin-top: 9px; }
+.sd-dialog .form-error { margin: 4px 0 0; font-size: 11px; }
+
+/* Override base dialog input sizing with higher specificity */
+.sd-dialog .sd-field > input:not([type=checkbox]),
+.sd-dialog .sd-field > select { height: 30px; margin: 0; }
+.sd-dialog .sd-field > textarea { height: auto; margin: 0; }
+
+/* Server editor: label and control on one row */
+.sd-form { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.sd-dialog .sd-row { display: flex; align-items: center; gap: 8px; margin: 0; min-width: 0; font-size: 11px; color: #8e99a9; }
+.sd-dialog .sd-row > span { width: 78px; flex: none; line-height: 1.3; }
+.sd-dialog label.sd-row > input,
+.sd-dialog label.sd-row > select {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 30px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid #e4e8ef;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #202b3c;
+  background: #fff;
+  outline: none;
+}
+.sd-dialog .sd-row > textarea {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e4e8ef;
+  border-radius: 6px;
+  outline: none;
+  background: #fff;
+  color: #202b3c;
+}
+.sd-dialog .sd-row-top { align-items: flex-start; }
+.sd-dialog .sd-row-top > span { padding-top: 6px; }
+.sd-dialog .sd-row-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sd-dialog .sd-row-split .sd-row > span { width: 34px; }
+.sd-dialog .sd-keywrap,
+.sd-dialog .sd-tagwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.sd-dialog .sd-row .sd-auth { flex: 1; }
+.sd-dialog .sd-row .sd-key { width: 100%; }
+.sd-dialog .sd-row .sd-tagadd { margin-top: 0; }
+
+html.theme-dark .sd-dialog .sd-row { color: #a9b7c6; }
+html.theme-dark .sd-dialog label.sd-row > input,
+html.theme-dark .sd-dialog label.sd-row > select,
+html.theme-dark .sd-dialog .sd-row > textarea {
+  background: #45494a;
+  border-color: #5a5a5a;
+  color: #bbbbbb;
+}
+
+/* Align checkbox with the control column */
+.sd-dialog .sd-check { margin-left: 86px; }
+
+/* Checkbox aligned with the control column */
+.sd-dialog .sd-checkbox { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8e99a9; cursor: pointer; }
+.sd-dialog .sd-checkbox input { width: 14px; height: 14px; margin: 0; accent-color: #3863e8; }
+html.theme-dark .sd-dialog .sd-checkbox { color: #a9b7c6; }

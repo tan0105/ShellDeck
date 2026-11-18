@@ -1,0 +1,26 @@
+appId: com.shelldeck.desktop
+productName: ShellDeck
+copyright: ShellDeck
+directories:
+  output: ../ShellDeck-build
+  buildResources: resources
+electronDist: node_modules/electron/dist
+npmRebuild: false
+asar: true
+asarUnpack:
+  - "**/*.node"
+files:
+  - dist/**
+  - electron/**
+  - package.json
+extraResources:
+  - from: resources
+    to: resources
+  - from: electron/update-helper.ps1
+    to: update-helper.ps1
+win:
+  target:
+    - target: dir
+      arch:
+        - x64
+  icon: resources/icon.ico
