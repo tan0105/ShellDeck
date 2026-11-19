@@ -153,6 +153,8 @@ jobs:
           "@ | Set-Content -Path "release/release-notes-body.md" -Encoding utf8
             gh release create $tag @assets --title "ShellDeck $env:VERSION" --notes-file "release/release-notes-body.md"
           }
+          $release = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
+          gh api --method PATCH "repos/${{ github.repository }}/releases/$($release.id)" -F draft=false -F make_latest=true | Out-Null
 
       - name: Remove signing key
         if: always()
