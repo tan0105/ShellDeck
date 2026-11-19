@@ -184,9 +184,10 @@ jobs:
               Write-Warning "delete workflow run $($run.id) failed: $($_.Exception.Message)"
             }
           }
-          $releases = @(Invoke-RestMethod -Headers $headers -Uri "$api/releases?per_page=100" | Sort-Object -Property published_at -Descending)
-          $keepReleases = @($releases | Select-Object -First 2)
-          foreach ($release in ($releases | Select-Object -Skip 2)) {
+          $releases = Invoke-RestMethod -Headers $headers -Uri "$api/releases?per_page=100"
+          $orderedReleases = @($releases | Sort-Object -Property published_at -Descending)
+          $keepReleases = @($orderedReleases | Select-Object -First 2)
+          foreach ($release in ($orderedReleases | Select-Object -Skip 2)) {
             try {
               Invoke-RestMethod -Method Delete -Headers $headers -Uri "$api/releases/$($release.id)" | Out-Null
               Write-Host "deleted release $($release.tag_name)"
@@ -199,7 +200,7 @@ jobs:
           foreach ($release in $keepReleases) {
             if ($release.tag_name) { $keepTags["refs/tags/$($release.tag_name)"] = $true }
           }
-          $tags = @(Invoke-RestMethod -Headers $headers -Uri "$api/git/refs/tags")
+          $tags = Invoke-RestMethod -Headers $headers -Uri "$api/git/refs/tags"
           foreach ($tag in $tags) {
             if ($keepTags.ContainsKey([string]$tag.ref)) { continue }
             try {
@@ -209,7 +210,7 @@ jobs:
               Write-Warning "delete tag $($tag.ref) failed: $($_.Exception.Message)"
             }
           }
-          $deps = @(Invoke-RestMethod -Headers $headers -Uri "$api/deployments?per_page=100")
+          $deps = Invoke-RestMethod -Headers $headers -Uri "$api/deployments?per_page=100"
           $latestByEnv = @{}
           foreach ($dep in $deps) {
             $envName = [string]$dep.environment
