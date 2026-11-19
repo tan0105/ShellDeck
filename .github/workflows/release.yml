@@ -117,7 +117,7 @@ jobs:
       - name: Generate signed manifest
         shell: pwsh
         run: |
-          npm run release -- --version $env:VERSION --file release/ShellDeck/runtime/resources/app.asar --url "https://github.com/${{ github.repository }}/releases/latest/download/app.asar" --notes "ShellDeck $env:VERSION 正式版"
+          npm run release -- --version $env:VERSION --file release/ShellDeck/runtime/resources/app.asar --url "https://github.com/${{ github.repository }}/releases/latest/download/app.asar" --notes-file release-notes.md
 
       - name: Create portable zip
         shell: pwsh
@@ -143,12 +143,15 @@ jobs:
           if ($exists) {
             gh release upload $tag @assets --clobber
           } else {
+            $notes = Get-Content release-notes.md -Raw
             @"
           下载 ShellDeck-$env:VERSION-win-x64.zip，解压后双击 ShellDeck.exe 运行。
 
           本 Release 同时提供应用内更新资产：app.asar、release.json、release.json.sig。
-          "@ | Set-Content -Path "release/release-notes.md" -Encoding utf8
-            gh release create $tag @assets --title "ShellDeck $env:VERSION" --notes-file "release/release-notes.md"
+
+          $notes
+          "@ | Set-Content -Path "release/release-notes-body.md" -Encoding utf8
+            gh release create $tag @assets --title "ShellDeck $env:VERSION" --notes-file "release/release-notes-body.md"
           }
 
       - name: Remove signing key

@@ -13,7 +13,8 @@ const file = arg('file', format === 'full'
   ? path.join('release', 'ShellDeck-runtime.zip')
   : path.join('release', 'ShellDeck', 'runtime', 'resources', 'app.asar'))
 const url = arg('url', format === 'full' ? 'ShellDeck-runtime.zip' : 'app.asar')
-const notes = arg('notes', '')
+const notesFile = arg('notes-file', '')
+const notes = notesFile ? fs.readFileSync(notesFile, 'utf8').trim() : arg('notes', '')
 const outDir = arg('out', 'release')
 const keyPath = arg('key', process.env.SHELLDECK_RELEASE_KEY || path.join('.release-keys', 'private.pem'))
 const electronVersion = arg('electron', (() => {
