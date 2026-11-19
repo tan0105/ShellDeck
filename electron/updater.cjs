@@ -600,6 +600,7 @@ function install() {
     : path.join(__dirname, 'update-helper.ps1')
   const backup = targetAsar + '.previous'
   const logPath = path.join(paths.updatesDir, 'update.log')
+  try { fs.rmSync(logPath, { force: true }) } catch { /* ignore */ }
   const { spawn } = require('node:child_process')
   const child = spawn('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
@@ -614,7 +615,27 @@ function install() {
   ], { detached: true, stdio: 'ignore', windowsHide: true })
   child.unref()
   setState({ status: 'installing', progress: 100 })
-  setTimeout(() => app.quit(), 400)
+  let waited = 0
+  let settled = false
+  let timer = 0
+  const finishError = error => {
+    if (settled) return
+    settled = true
+    clearInterval(timer)
+    setState({ status: 'error', error: '安装更新失败：' + (error.message || error), progress: 0 })
+  }
+  timer = setInterval(() => {
+    if (settled) return
+    if (fs.existsSync(logPath)) {
+      settled = true
+      clearInterval(timer)
+      setTimeout(() => app.quit(), 500)
+      return
+    }
+    waited += 100
+    if (waited >= 8000) finishError(new Error('更新进程未能启动，请重试'))
+  }, 100)
+  child.on('error', finishError)
   return snapshot()
 }
 
