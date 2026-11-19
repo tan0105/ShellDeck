@@ -53,6 +53,7 @@ npm run dist       # 构建 release/ShellDeck
 
 - 开发模式：仓库根目录 `data/ssh.db`
 - 打包后：`release/ShellDeck/data/ssh.db`
+- 直接启动 `runtime/ShellDeckRuntime.exe` 时会自动使用上一级目录的 `data`
 - 目录不可写时启动直接报错退出，不改写到 AppData
 - 密码、私钥、口令均为本机明文存储；设置里可打开数据目录、备份和恢复
 

@@ -7,7 +7,13 @@ const PROBE = '.write-probe'
 function resolveDataDir() {
   if (process.env.SHELLDECK_DATA_DIR) return process.env.SHELLDECK_DATA_DIR
   if (process.env.PORTABLE_EXECUTABLE_DIR) return path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data')
-  if (app.isPackaged) return path.join(path.dirname(app.getPath('exe')), 'data')
+  if (app.isPackaged) {
+    const exeDir = path.dirname(app.getPath('exe'))
+    if (path.basename(exeDir).toLowerCase() === 'runtime') {
+      return path.join(path.dirname(exeDir), 'data')
+    }
+    return path.join(exeDir, 'data')
+  }
   return path.join(__dirname, '..', 'data')
 }
 
