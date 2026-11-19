@@ -8,7 +8,7 @@ const builtDir = process.env.SHELLDECK_APP_DIR || path.join(root, 'release', 'Sh
 const appExeName = process.env.SHELLDECK_APP_EXE || 'ShellDeckRuntime.exe'
 const testDir = path.join(root, '..', 'ShellDeck-build', 'helper-test')
 const exePath = path.join(testDir, appExeName)
-const helper = path.join(testDir, 'resources', 'update-helper.ps1')
+const helper = path.join(testDir, 'resources', 'update-helper.cjs')
 const backup = path.join(testDir, 'ShellDeck.previous.exe')
 const logPath = path.join(testDir, 'data', 'updates', 'update.log')
 const tmpDir = path.join(root, '.e2e-tmp', 'helper-install')
@@ -24,14 +24,14 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 function runHelper(targetPid, newExe) {
   return new Promise((resolve, reject) => {
     const output = []
-    const child = spawn('powershell.exe', [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
-      '-AppExe', exePath,
-      '-NewExe', newExe,
-      '-Backup', backup,
-      '-TargetPid', String(targetPid),
-      '-ParentPid', '0',
-      '-LogPath', logPath,
+    const child = spawn(process.execPath, [
+      helper,
+      '--mode', 'exe',
+      '--app-exe', exePath,
+      '--new-exe', newExe,
+      '--backup', backup,
+      '--target-pid', String(targetPid),
+      '--log-path', logPath,
     ], { windowsHide: true })
     child.stdout.on('data', chunk => output.push(chunk.toString()))
     child.stderr.on('data', chunk => output.push(chunk.toString()))
@@ -80,7 +80,7 @@ async function removeWithRetry(target, attempts = 5) {
 
 async function main() {
   if (!fs.existsSync(path.join(builtDir, appExeName))) throw new Error('packaged build missing')
-  if (!fs.existsSync(path.join(builtDir, 'resources', 'update-helper.ps1'))) throw new Error('update-helper.ps1 missing from packaged resources')
+  if (!fs.existsSync(path.join(builtDir, 'resources', 'update-helper.cjs'))) throw new Error('update-helper.cjs missing from packaged resources')
   stopTestApp()
   fs.rmSync(testDir, { recursive: true, force: true })
   fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -133,15 +133,15 @@ async function main() {
   const asarDummy = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' })
   setTimeout(() => { try { asarDummy.kill() } catch { /* gone */ } }, 1200)
   await new Promise((resolve, reject) => {
-    const child = spawn('powershell.exe', [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
-      '-Mode', 'asar',
-      '-Launcher', 'C:/Windows/System32/whoami.exe',
-      '-TargetFile', targetAsar,
-      '-NewFile', newPayload,
-      '-BackupFile', backupAsar,
-      '-TargetPid', String(asarDummy.pid),
-      '-LogPath', logPath,
+    const child = spawn(process.execPath, [
+      helper,
+      '--mode', 'asar',
+      '--launcher', 'C:/Windows/System32/whoami.exe',
+      '--target-file', targetAsar,
+      '--new-file', newPayload,
+      '--backup-file', backupAsar,
+      '--target-pid', String(asarDummy.pid),
+      '--log-path', logPath,
     ], { windowsHide: true })
     child.on('error', reject)
     child.on('close', code => code === 0 ? resolve() : reject(new Error('asar helper exited ' + code)))

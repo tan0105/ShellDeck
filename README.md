@@ -84,6 +84,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 - 检查更新只读取签名清单；点击下载后才对加速源做延迟与下载速度测试，自动选择最快源；代理模式所有更新请求走指定代理
 - 每次 Release 上传 `app.asar`、`release.json`、`release.json.sig`
 - 普通更新只下载并替换 `runtime/resources/app.asar`，数据目录不动
+- 更新 helper 使用 Electron runtime 的 Node 模式执行，不依赖 PowerShell
 - Electron、原生模块或入口启动器变化时，用 `--format full` 生成整包清单；整包目前需手动替换 `runtime`
 - 加速服务只转发请求，不改变签名校验；清单和资产仍按内置公钥、SHA-256 校验
 

@@ -596,23 +596,27 @@ function install() {
     throw new Error('未找到文件夹版入口或 app.asar，无法自动安装')
   }
   const helper = app.isPackaged
-    ? path.join(process.resourcesPath, 'update-helper.ps1')
-    : path.join(__dirname, 'update-helper.ps1')
+    ? path.join(process.resourcesPath, 'update-helper.cjs')
+    : path.join(__dirname, 'update-helper.cjs')
   const backup = targetAsar + '.previous'
   const logPath = path.join(paths.updatesDir, 'update.log')
   try { fs.rmSync(logPath, { force: true }) } catch { /* ignore */ }
   const { spawn } = require('node:child_process')
-  const child = spawn('powershell.exe', [
-    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
-    '-Mode', 'asar',
-    '-Launcher', launcher,
-    '-TargetFile', targetAsar,
-    '-NewFile', state.asset.localPath,
-    '-BackupFile', backup,
-    '-TargetPid', String(process.pid),
-    '-ParentPid', '0',
-    '-LogPath', logPath,
-  ], { detached: true, stdio: 'ignore', windowsHide: true })
+  const child = spawn(process.execPath, [
+    helper,
+    '--mode', 'asar',
+    '--launcher', launcher,
+    '--target-file', targetAsar,
+    '--new-file', state.asset.localPath,
+    '--backup-file', backup,
+    '--target-pid', String(process.pid),
+    '--log-path', logPath,
+  ], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  })
   child.unref()
   setState({ status: 'installing', progress: 100 })
   let waited = 0

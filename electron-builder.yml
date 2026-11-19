@@ -34,8 +34,8 @@ files:
 extraResources:
   - from: resources
     to: resources
-  - from: electron/update-helper.ps1
-    to: update-helper.ps1
+  - from: electron/update-helper.cjs
+    to: update-helper.cjs
 win:
   target:
     - target: dir

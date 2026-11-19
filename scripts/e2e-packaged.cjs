@@ -25,18 +25,18 @@ async function main() {
   const updateSrc = path.join(tmpDir, 'packaged-update-src')
   fs.rmSync(updateSrc, { recursive: true, force: true })
   fs.mkdirSync(updateSrc, { recursive: true })
-  const fakeExe = path.join(updateSrc, 'ShellDeck-0.2.0.exe')
+  const fakeExe = path.join(updateSrc, 'ShellDeck-1.0.2.exe')
   fs.writeFileSync(fakeExe, Buffer.from('packaged update test'))
   const bytes = fs.readFileSync(fakeExe)
   const manifest = {
     schemaVersion: 1,
     appId: 'com.shelldeck.desktop',
     channel: 'stable',
-    version: '0.2.0',
+    version: '1.0.2',
     publishedAt: new Date().toISOString(),
     minSupportedVersion: '0.0.1',
     notes: '打包版更新校验',
-    assets: { 'win-x64': { url: 'ShellDeck-0.2.0.exe', size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') } },
+    assets: { 'win-x64': { url: 'ShellDeck-1.0.2.exe', size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') } },
   }
   const raw = Buffer.from(JSON.stringify(manifest, null, 2))
   fs.writeFileSync(path.join(updateSrc, 'release.json'), raw)
@@ -70,7 +70,7 @@ async function main() {
       resourcesPath: process.resourcesPath,
     }))
     if (!info.packaged) throw new Error('expected packaged app')
-    if (!fs.existsSync(path.join(info.resourcesPath, 'update-helper.ps1'))) throw new Error('update helper missing from resources')
+    if (!fs.existsSync(path.join(info.resourcesPath, 'update-helper.cjs'))) throw new Error('update helper missing from resources')
     const shellInfo = await page.evaluate(() => window.shellDeck.app.info())
     if (process.env.SHELLDECK_EXPECT_FOLDER === '1' && !shellInfo.folderMode) throw new Error('expected folder mode, got: ' + JSON.stringify(shellInfo))
     log('packaged app info', JSON.stringify(info))
@@ -131,7 +131,7 @@ async function main() {
     await page.locator('.ssh-version').click()
     await page.waitForSelector('.update-dialog')
     const updateDialogText = await page.locator('.update-dialog').innerText()
-    for (const text of ['0.2.0', '重启安装', '下次再说']) {
+    for (const text of ['1.0.2', '重启安装', '下次再说']) {
       if (!updateDialogText.includes(text)) throw new Error('packaged update dialog missing ' + text)
     }
     if (!(await page.locator('.update-dialog .update-box').isVisible())) throw new Error('update details are not rendered')

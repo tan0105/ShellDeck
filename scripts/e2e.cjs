@@ -27,20 +27,20 @@ async function main() {
 
   const updateSrc = path.join(tmpDir, 'update-src')
   fs.mkdirSync(updateSrc, { recursive: true })
-  const fakeExe = path.join(updateSrc, 'ShellDeck-0.2.0.exe')
+  const fakeExe = path.join(updateSrc, 'ShellDeck-1.0.2.exe')
   fs.writeFileSync(fakeExe, Buffer.from('fake portable exe for update test'))
   const exeBytes = fs.readFileSync(fakeExe)
   const manifest = {
     schemaVersion: 1,
     appId: 'com.shelldeck.desktop',
     channel: 'stable',
-    version: '0.2.0',
+    version: '1.0.2',
     publishedAt: new Date().toISOString(),
     minSupportedVersion: '0.0.1',
     notes: 'E2E 更新清单测试',
     assets: {
       'win-x64': {
-        url: 'ShellDeck-0.2.0.exe',
+        url: 'ShellDeck-1.0.2.exe',
         size: exeBytes.length,
         sha256: crypto.createHash('sha256').update(exeBytes).digest('hex'),
       },
@@ -236,8 +236,8 @@ async function main() {
       await window.shellDeck.updater.addSource({ name: 'E2E 本地源', type: 'local', baseUrl: dir, priority: 1, enabled: true })
       return window.shellDeck.updater.check()
     }, updateSrc)
-    if (checked.status !== 'available' || checked.version !== '0.2.0') {
-      throw new Error('update check did not find 0.2.0: ' + JSON.stringify(checked))
+    if (checked.status !== 'available' || checked.version !== '1.0.2') {
+      throw new Error('update check did not find 1.0.2: ' + JSON.stringify(checked))
     }
     await page.waitForSelector('.ssh-version.available', { timeout: 5000 })
     const badge = (await page.locator('.ssh-version-badge').textContent()).trim()
@@ -245,7 +245,7 @@ async function main() {
     await page.locator('.ssh-version').click()
     await page.waitForSelector('.update-dialog')
     const updateDialogText = await page.locator('.update-dialog').textContent()
-    for (const text of ['0.2.0', '立即更新', '下次再说', 'E2E 更新清单测试']) {
+    for (const text of ['1.0.2', '立即更新', '下次再说', 'E2E 更新清单测试']) {
       if (!updateDialogText.includes(text)) throw new Error('update dialog missing ' + text)
     }
     await page.locator('.update-dialog .um-close').click()
