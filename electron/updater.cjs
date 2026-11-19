@@ -281,22 +281,54 @@ function buildCandidateList(rawUrl, sources) {
     .filter(Boolean)
 }
 
+function networkFingerprint() {
+  if (networkMode() === 'proxy') return 'proxy:' + String(db.getSetting('update.proxy') || '')
+  return 'accelerator:' + String(db.getSetting('update.accelerator') || 'auto') + ':' + String(db.getSetting('update.acceleratorCustom') || '')
+}
+
+function cachedFastSource(candidates) {
+  try {
+    const cached = JSON.parse(db.getSetting('update.fastSource') || 'null')
+    if (!cached || Date.now() - Number(cached.ts || 0) > 12 * 3600 * 1000) return null
+    if (cached.fingerprint !== networkFingerprint()) return null
+    const candidate = candidates.find(item => item.id === cached.id || (cached.name && item.name === cached.name))
+    return candidate ? { ...candidate, speed: Number(cached.bps) || 0 } : null
+  } catch {
+    return null
+  }
+}
+
+function rememberFastSource(chosen) {
+  if (!chosen || !chosen.probe || !chosen.probe.ok || !chosen.probe.bps) return
+  db.setSetting('update.fastSource', JSON.stringify({
+    fingerprint: networkFingerprint(),
+    id: chosen.id,
+    name: chosen.name,
+    bps: chosen.probe.bps,
+    ts: Date.now(),
+  }))
+}
+
 async function chooseFastestAsset(asset) {
   const candidates = (asset.candidates || []).filter(item => /^https:\/\//i.test(item.url))
   if (!candidates.length) return { url: asset.url, speed: 0, benchmarks: [] }
   if (candidates.length === 1) {
     return { url: candidates[0].url, name: candidates[0].name, id: candidates[0].id, type: candidates[0].type, speed: 0, benchmarks: [] }
   }
+  const cached = cachedFastSource(candidates)
+  if (cached) {
+    return { url: cached.url, name: cached.name, id: cached.id, type: cached.type, speed: cached.speed, benchmarks: [] }
+  }
   const firstPass = []
   for (const item of candidates) {
-    firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 256 * 1024, 5000) })
+    firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 128 * 1024, 3000) })
   }
   const sortProbe = (a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms)
   const validFirst = firstPass.filter(item => item.probe.ok).sort(sortProbe)
-  const finalists = (validFirst.length ? validFirst : firstPass).slice(0, 3)
+  const finalists = (validFirst.length ? validFirst : firstPass).slice(0, 2)
   const secondPass = []
   for (const item of finalists) {
-    secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 2 * 1024 * 1024, 10000) })
+    secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 1024 * 1024, 6000) })
   }
   const validSecond = secondPass.filter(item => item.probe.ok).sort(sortProbe)
   const pool = validSecond.length ? validSecond : (validFirst.length ? validFirst : firstPass)
@@ -309,6 +341,7 @@ async function chooseFastestAsset(asset) {
     error: item.probe.error,
   }))
   const chosen = validSecond[0] || validFirst[0] || firstPass.sort(sortProbe)[0] || candidates[0]
+  rememberFastSource(chosen)
   return { url: chosen.url, name: chosen.name, id: chosen.id, type: chosen.type, speed: chosen.probe.bps || 0, benchmarks }
 }
 
@@ -455,6 +488,7 @@ async function download() {
       })
     } catch (error) {
       running = false
+      db.setSetting('update.fastSource', '')
       setState({ status: 'error', error: '测速失败：' + (error.message || error), progress: 0 })
       return snapshot()
     }
@@ -480,6 +514,7 @@ async function download() {
     const partPath = finalPath + '.part'
     const fail = error => {
       running = false
+      db.setSetting('update.fastSource', '')
       try { fs.unlinkSync(partPath) } catch { /* Not present. */ }
       setState({ status: 'error', error: '下载失败：' + (error.message || error), progress: 0 })
       resolve(snapshot())
