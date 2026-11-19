@@ -27,6 +27,15 @@ const statusText = computed(() => ({
 const format = computed(() => props.state.asset?.format === 'full' ? 'full' : 'asar')
 const showUpdate = computed(() => ['available', 'testing', 'downloading', 'ready', 'installing'].includes(props.state.status))
 const showError = computed(() => props.error || props.state.error || '')
+const noteItems = computed(() => {
+  const lines = String(props.state.notes || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+  if (lines.length && lines[0].includes(props.state.version || '') && /正式版|更新/.test(lines[0])) lines.shift()
+  return lines.map(line => line.replace(/^[-*]\s+/, '')).filter(Boolean)
+})
 const speedText = computed(() => {
   const bps = Number(props.state.speed) || 0
   if (!bps) return ''
@@ -84,7 +93,9 @@ function updateNow() {
             <b>v{{ state.version }}</b>
             <span v-if="state.asset">{{ format === 'full' ? '整包' : 'app.asar' }} · {{ formatSize(state.asset.size) }}</span>
           </div>
-          <p v-if="state.notes" class="update-notes">{{ state.notes }}</p>
+          <ol v-if="noteItems.length" class="update-list">
+            <li v-for="item in noteItems" :key="item">{{ item }}</li>
+          </ol>
           <div v-if="downloading" class="update-progress"><i :style="{ width: (state.progress || 0) + '%' }"></i></div>
           <p v-if="downloading" class="update-progress-text">{{ state.progress || 0 }}%</p>
           <p v-if="format === 'full'" class="settings-muted">整包更新暂不支持应用内安装，请下载后手动替换 runtime。</p>
