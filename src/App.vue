@@ -44,6 +44,7 @@ const updateState = ref({ status: 'idle' })
 const updateError = ref('')
 const updateBusy = ref(false)
 const updateOpen = ref(false)
+const updateConfirmOpen = ref(false)
 
 function showToast(message, kind = 'info') {
   if (!message) return
@@ -305,7 +306,7 @@ async function updateNow() {
       updateState.value = state
     }
     if (state.status === 'ready' && info.value.packaged && state.asset?.format !== 'full') {
-      await window.shellDeck.updater.install()
+      updateConfirmOpen.value = true
     }
   } catch (error) {
     updateError.value = error.message || '更新失败'
@@ -313,8 +314,25 @@ async function updateNow() {
     updateBusy.value = false
   }
 }
+async function installUpdate() {
+  updateConfirmOpen.value = false
+  updateBusy.value = true
+  updateError.value = ''
+  try {
+    await window.shellDeck.updater.install()
+  } catch (error) {
+    updateError.value = error.message || '安装更新失败'
+    updateBusy.value = false
+    updateOpen.value = true
+  }
+}
+function closeUpdateDialog() {
+  updateOpen.value = false
+  updateConfirmOpen.value = false
+}
 function openUpdateDialog() {
   updateOpen.value = true
+  updateConfirmOpen.value = false
   updateError.value = ''
   if (updateState.value.status === 'idle') checkUpdate()
 }
@@ -403,8 +421,11 @@ async function restoreDatabase() {
       :error="updateError"
       :busy="updateBusy"
       :packaged="Boolean(info.packaged)"
-      @close="updateOpen = false"
+      :confirm-open="updateConfirmOpen"
+      @close="closeUpdateDialog"
       @update-now="updateNow"
+      @confirm-close="updateConfirmOpen = false"
+      @confirm-install="installUpdate"
     />
 
     <div v-if="toast.visible" class="app-toast" :class="toast.kind">{{ toast.message }}</div>

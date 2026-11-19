@@ -131,13 +131,19 @@ async function main() {
     await page.locator('.ssh-version').click()
     await page.waitForSelector('.update-dialog')
     const updateDialogText = await page.locator('.update-dialog').innerText()
-    for (const text of ['0.2.0', '立即更新', '下次再说']) {
+    for (const text of ['0.2.0', '重启安装', '下次再说']) {
       if (!updateDialogText.includes(text)) throw new Error('packaged update dialog missing ' + text)
     }
     if (!(await page.locator('.update-dialog .update-box').isVisible())) throw new Error('update details are not rendered')
-    if (!(await page.locator('.update-dialog .um-dialog-actions .um-primary', { hasText: '立即更新' }).isVisible())) throw new Error('update action is not rendered')
+    if (!(await page.locator('.update-dialog .um-dialog-actions .um-primary', { hasText: '重启安装' }).isVisible())) throw new Error('update action is not rendered')
     const actions = await page.locator('.update-dialog .um-dialog-actions button').count()
     if (actions !== 2) throw new Error('expected exactly two update actions, got ' + actions)
+    await page.locator('.update-dialog .um-dialog-actions .um-primary', { hasText: '重启安装' }).click()
+    await page.waitForSelector('.update-confirm-overlay', { timeout: 5000 })
+    const confirmText = await page.locator('.update-confirm-overlay').innerText()
+    if (!confirmText.includes('是否立即重启并安装')) throw new Error('restart confirmation missing')
+    await page.locator('.update-confirm-overlay .um-dialog-actions button', { hasText: '稍后' }).click()
+    await page.waitForSelector('.update-confirm-overlay', { state: 'detached', timeout: 5000 })
     await page.locator('.update-dialog .um-close').click()
     log('packaged signed update check/download and dialog ok')
 

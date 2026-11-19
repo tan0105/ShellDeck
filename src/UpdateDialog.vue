@@ -8,8 +8,9 @@ const props = defineProps({
   error: { type: String, default: '' },
   busy: Boolean,
   packaged: Boolean,
+  confirmOpen: Boolean,
 })
-const emit = defineEmits(['close', 'update-now'])
+const emit = defineEmits(['close', 'update-now', 'confirm-close', 'confirm-install'])
 
 const statusText = computed(() => ({
   idle: '点击检查更新',
@@ -40,6 +41,7 @@ const actionLabel = computed(() => {
   if (installing.value) return '正在安装…'
   if (ready.value && format.value === 'full') return '需手动替换'
   if (ready.value && !props.packaged) return '下载完成'
+  if (ready.value) return '重启安装'
   return '立即更新'
 })
 const actionDisabled = computed(() => checking.value || downloading.value || installing.value || (ready.value && (format.value === 'full' || !props.packaged)))
@@ -100,6 +102,16 @@ function updateNow() {
         <div class="um-dialog-actions">
           <button type="button" @click="emit('close')">下次再说</button>
           <button v-if="state.status !== 'up-to-date'" type="button" class="um-primary" :disabled="busy || actionDisabled" @click="updateNow">{{ actionLabel }}</button>
+        </div>
+      </section>
+    </div>
+    <div v-if="open && confirmOpen" class="um-overlay update-confirm-overlay">
+      <section class="um-dialog ssh-confirm-dialog" role="dialog" aria-modal="true">
+        <h2>重启并安装</h2>
+        <p>更新 v{{ state.version }} 已下载。是否立即重启并安装？正在运行的终端和文件传输会中断。</p>
+        <div class="um-dialog-actions">
+          <button type="button" @click="emit('confirm-close')">稍后</button>
+          <button type="button" class="um-primary" :disabled="busy" @click="emit('confirm-install')">立即重启</button>
         </div>
       </section>
     </div>
