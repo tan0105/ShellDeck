@@ -185,11 +185,16 @@ jobs:
             }
           }
           $deps = @(Invoke-RestMethod -Headers $headers -Uri "$api/deployments?per_page=100")
-          $keep = @{}
-          foreach ($group in ($deps | Group-Object environment)) {
-            $latest = $group.Group | Sort-Object { [datetime]$_.created_at } -Descending | Select-Object -First 1
-            if ($latest) { $keep[[string]$latest.id] = $true }
+          $latestByEnv = @{}
+          foreach ($dep in $deps) {
+            $envName = [string]$dep.environment
+            $created = [datetime]$dep.created_at
+            if (-not $latestByEnv.ContainsKey($envName) -or $created -gt $latestByEnv[$envName].created) {
+              $latestByEnv[$envName] = @{ id = [string]$dep.id; created = $created }
+            }
           }
+          $keep = @{}
+          foreach ($item in $latestByEnv.Values) { $keep[[string]$item.id] = $true }
           foreach ($dep in $deps) {
             if ($keep.ContainsKey([string]$dep.id)) { continue }
             try {
