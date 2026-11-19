@@ -185,13 +185,23 @@ jobs:
             }
           }
           $releases = @(Invoke-RestMethod -Headers $headers -Uri "$api/releases?per_page=100")
-          $oldReleases = $releases | Sort-Object -Property published_at -Descending | Select-Object -Skip 10
+          $oldReleases = $releases | Sort-Object -Property published_at -Descending | Select-Object -Skip 1
           foreach ($release in $oldReleases) {
             try {
               Invoke-RestMethod -Method Delete -Headers $headers -Uri "$api/releases/$($release.id)" | Out-Null
               Write-Host "deleted release $($release.tag_name)"
             } catch {
               Write-Warning "delete release $($release.tag_name) failed: $($_.Exception.Message)"
+            }
+          }
+          $tags = @(Invoke-RestMethod -Headers $headers -Uri "$api/git/refs/tags")
+          foreach ($tag in $tags) {
+            if ($tag.ref -eq "refs/tags/$env:GITHUB_REF_NAME") { continue }
+            try {
+              Invoke-RestMethod -Method Delete -Headers $headers -Uri "$api/git/$($tag.ref)" | Out-Null
+              Write-Host "deleted tag $($tag.ref)"
+            } catch {
+              Write-Warning "delete tag $($tag.ref) failed: $($_.Exception.Message)"
             }
           }
           $deps = @(Invoke-RestMethod -Headers $headers -Uri "$api/deployments?per_page=100")
