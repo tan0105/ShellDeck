@@ -143,7 +143,7 @@ if (locked) {
   const defaultExists = fs.existsSync(targetDefaultAsar)
   const defaultSame = !defaultExists || hash(targetDefaultAsar) === hash(stagingDefaultAsar)
   if (!appSame) {
-    show('app.asar 被 占用 锁定，尝试原地更新 asar 内容')
+    show('app.asar 被占用，尝试原地更新 asar 内容')
     if (!overwriteInPlace(targetAsar, stagingAsar)) {
       console.error('app.asar 原地更新失败，已保留旧版本，未修改 release。')
       console.error('新构建暂存在:', stagingDir)
