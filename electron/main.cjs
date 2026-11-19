@@ -41,6 +41,16 @@ function toast(message, kind = 'info') {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app:toast', { message, kind })
 }
 
+function writeStartMarker() {
+  const arg = process.argv.find(value => value.startsWith('--update-start-marker='))
+  if (!arg) return
+  try {
+    const target = arg.slice('--update-start-marker='.length)
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, JSON.stringify({ pid: process.pid, version: app.getVersion(), at: Date.now() }))
+  } catch { /* Update verification is best effort. */ }
+}
+
 function loadWindowState() {
   try {
     const raw = db.getSetting('windowState')
@@ -92,6 +102,7 @@ function createWindow() {
     },
   })
 
+  mainWindow.webContents.once('did-finish-load', writeStartMarker)
   mainWindow.once('ready-to-show', () => {
     if (process.env.SHELLDECK_START_HIDDEN === '1') return
     mainWindow.show()

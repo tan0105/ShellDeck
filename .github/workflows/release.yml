@@ -187,7 +187,7 @@ jobs:
             }
           }
           $releases = Invoke-RestMethod -Headers $headers -Uri "$api/releases?per_page=100"
-          $orderedReleases = @($releases | Sort-Object -Property published_at -Descending)
+          $orderedReleases = @($releases | Sort-Object { try { [version]($_.tag_name -replace '^[vV]', '') } catch { [version]'0.0.0' } } -Descending)
           $keepReleases = @($orderedReleases | Select-Object -First 2)
           foreach ($release in ($orderedReleases | Select-Object -Skip 2)) {
             try {

@@ -6,11 +6,14 @@ const { spawn, execFileSync } = require('node:child_process')
 const root = path.join(__dirname, '..')
 const builtDir = process.env.SHELLDECK_APP_DIR || path.join(root, 'release', 'ShellDeck', 'runtime')
 const appExeName = process.env.SHELLDECK_APP_EXE || 'ShellDeckRuntime.exe'
+const helperRuntime = process.env.SHELLDECK_HELPER_RUNTIME || path.join(builtDir, appExeName)
 const testDir = path.join(root, '..', 'ShellDeck-build', 'helper-test')
 const exePath = path.join(testDir, appExeName)
 const helper = path.join(testDir, 'resources', 'update-helper.cjs')
 const backup = path.join(testDir, 'ShellDeck.previous.exe')
 const logPath = path.join(testDir, 'data', 'updates', 'update.log')
+const testDataDir = path.join(testDir, 'data')
+const testUserData = path.join(testDir, 'userdata')
 const tmpDir = path.join(root, '.e2e-tmp', 'helper-install')
 
 function log(step, value = '') {
@@ -24,15 +27,17 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 function runHelper(targetPid, newExe) {
   return new Promise((resolve, reject) => {
     const output = []
-    const child = spawn(process.execPath, [
+    const child = spawn(helperRuntime, [
       helper,
       '--mode', 'exe',
       '--app-exe', exePath,
       '--new-exe', newExe,
       '--backup', backup,
       '--target-pid', String(targetPid),
+      '--data-dir', testDataDir,
+      '--user-data-dir', testUserData,
       '--log-path', logPath,
-    ], { windowsHide: true })
+    ], { windowsHide: true, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', SHELLDECK_START_HIDDEN: '1' } })
     child.stdout.on('data', chunk => output.push(chunk.toString()))
     child.stderr.on('data', chunk => output.push(chunk.toString()))
     const timer = setTimeout(() => { try { child.kill() } catch { /* gone */ } }, 30000)
@@ -86,6 +91,7 @@ async function main() {
   fs.rmSync(tmpDir, { recursive: true, force: true })
   fs.mkdirSync(tmpDir, { recursive: true })
   fs.mkdirSync(path.dirname(logPath), { recursive: true })
+  fs.mkdirSync(testUserData, { recursive: true })
   log('copying app tree')
   fs.cpSync(builtDir, testDir, { recursive: true })
 
@@ -133,7 +139,7 @@ async function main() {
   const asarDummy = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' })
   setTimeout(() => { try { asarDummy.kill() } catch { /* gone */ } }, 1200)
   await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [
+    const child = spawn(helperRuntime, [
       helper,
       '--mode', 'asar',
       '--launcher', 'C:/Windows/System32/whoami.exe',
@@ -141,8 +147,10 @@ async function main() {
       '--new-file', newPayload,
       '--backup-file', backupAsar,
       '--target-pid', String(asarDummy.pid),
+      '--data-dir', testDataDir,
+      '--user-data-dir', testUserData,
       '--log-path', logPath,
-    ], { windowsHide: true })
+    ], { windowsHide: true, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', SHELLDECK_START_HIDDEN: '1' } })
     child.on('error', reject)
     child.on('close', code => code === 0 ? resolve() : reject(new Error('asar helper exited ' + code)))
   })

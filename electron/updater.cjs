@@ -589,15 +589,21 @@ function install() {
   if (!app.isPackaged) throw new Error('开发模式下不执行替换安装')
   if (state.asset.format === 'full') throw new Error('整包更新暂不支持应用内安装，请手动替换 runtime')
   const runtimeDir = path.dirname(process.resourcesPath)
+  const runtimeExe = path.join(runtimeDir, 'ShellDeckRuntime.exe')
   const rootDir = path.dirname(runtimeDir)
   const launcher = path.join(rootDir, 'ShellDeck.exe')
   const targetAsar = path.join(process.resourcesPath, 'app.asar')
-  if (!fs.existsSync(launcher) || !fs.existsSync(targetAsar)) {
-    throw new Error('未找到文件夹版入口或 app.asar，无法自动安装')
+  if (!fs.existsSync(launcher) || !fs.existsSync(runtimeExe) || !fs.existsSync(targetAsar)) {
+    throw new Error('未找到文件夹版入口、runtime 或 app.asar，无法自动安装')
+  }
+  const payload = fs.readFileSync(state.asset.localPath)
+  const payloadHash = crypto.createHash('sha256').update(payload).digest('hex')
+  if (payload.length !== Number(state.asset.size) || payloadHash !== String(state.asset.sha256).toLowerCase()) {
+    throw new Error('安装包校验失败，请重新下载')
   }
   const embeddedHelper = path.join(__dirname, 'update-helper.cjs')
   const helper = app.isPackaged
-    ? path.join(paths.updatesDir, 'update-helper.cjs')
+    ? path.join(paths.updatesDir, `update-helper-${Date.now()}.cjs`)
     : embeddedHelper
   if (app.isPackaged) {
     fs.mkdirSync(paths.updatesDir, { recursive: true })
@@ -606,17 +612,20 @@ function install() {
     fs.writeFileSync(helper, fs.readFileSync(helperSource))
   }
   const backup = targetAsar + '.previous'
-  const logPath = path.join(paths.updatesDir, 'update.log')
-  try { fs.rmSync(logPath, { force: true }) } catch { /* ignore */ }
+  const logPath = path.join(paths.updatesDir, `update-${Date.now()}.log`)
   const { spawn } = require('node:child_process')
   const child = spawn(process.execPath, [
     helper,
     '--mode', 'asar',
     '--launcher', launcher,
+    '--runtime-exe', runtimeExe,
     '--target-file', targetAsar,
     '--new-file', state.asset.localPath,
     '--backup-file', backup,
     '--target-pid', String(process.pid),
+    '--data-dir', paths.dataDir,
+    '--user-data-dir', app.getPath('userData'),
+    '--start-marker', path.join(paths.updatesDir, `update-ready-${Date.now()}.json`),
     '--log-path', logPath,
   ], {
     detached: true,
@@ -633,6 +642,7 @@ function install() {
     if (settled) return
     settled = true
     clearInterval(timer)
+    try { child.kill() } catch { /* already gone */ }
     setState({ status: 'error', error: '安装更新失败：' + (error.message || error), progress: 0 })
   }
   timer = setInterval(() => {
