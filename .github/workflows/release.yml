@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    environment: release
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate version
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if (-not $tag.StartsWith('v')) { throw "Release tag must start with v" }
+          $version = $tag.Substring(1)
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($packageVersion -ne $version) {
+            throw "package.json version is $packageVersion, but tag is $tag. Run npm version first."
+          }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build folder release
+        run: npm run dist
+
+      - name: Write signing key
+        shell: pwsh
+        env:
+          RELEASE_KEY_PEM: ${{ secrets.RELEASE_KEY_PEM }}
+        run: |
+          if (-not $env:RELEASE_KEY_PEM) { throw "RELEASE_KEY_PEM is not configured" }
+          $path = Join-Path $env:RUNNER_TEMP 'release-key.pem'
+          [IO.File]::WriteAllText($path, $env:RELEASE_KEY_PEM)
+          "SHELLDECK_RELEASE_KEY=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Generate signed manifest
+        shell: pwsh
+        run: |
+          npm run release -- --version $env:VERSION --file release/ShellDeck/runtime/resources/app.asar --url "https://github.com/${{ github.repository }}/releases/latest/download/app.asar" --notes "ShellDeck $env:VERSION"
+
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE "release/ShellDeck-$env:VERSION-win-x64.zip"
+          Compress-Archive -LiteralPath "release/ShellDeck/ShellDeck.exe", "release/ShellDeck/runtime" -DestinationPath $zip -CompressionLevel Optimal -Force
+          "PORTABLE_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $assets = @(
+            $env:PORTABLE_ZIP,
+            "release/ShellDeck/runtime/resources/app.asar",
+            "release/release.json",
+            "release/release.json.sig"
+          )
+          gh release view $tag *> $null
+          $exists = $LASTEXITCODE -eq 0
+          if ($exists) {
+            gh release upload $tag @assets --clobber
+          } else {
+            @"
+          Download ShellDeck-$env:VERSION-win-x64.zip, extract it and run ShellDeck.exe.
+
+          This release also contains the signed in-app update assets.
+          "@ | Set-Content -Path "release/release-notes.md" -Encoding utf8
+            gh release create $tag @assets --title "ShellDeck $env:VERSION" --notes-file "release/release-notes.md"
+          }
+
+      - name: Remove signing key
+        if: always()
+        shell: pwsh
+        run: Remove-Item (Join-Path $env:RUNNER_TEMP 'release-key.pem') -ErrorAction SilentlyContinue

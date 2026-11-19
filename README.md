@@ -96,6 +96,20 @@ npm run release -- --version 0.2.0 \
 
 应用内置公钥在 `electron/updater.cjs`；签名默认读取 `.release-keys/private.pem`，也可用 `--key` 或 `SHELLDECK_RELEASE_KEY` 指定其他位置。
 
+## 自动发布
+
+`.github/workflows/release.yml` 在推送 `v*` 标签时自动构建并发布：
+
+```bash
+npm version patch
+git push github main --follow-tags
+git push origin main --follow-tags   # Gitea
+```
+
+GitHub Actions 会校验 tag 与 `package.json` 版本一致，构建文件夹版，生成签名清单，压缩完整包，然后创建或更新 Release，上传完整包和三个更新文件。
+
+签名私钥放在环境 `release` 的 `RELEASE_KEY_PEM` Secret，不写入仓库。每个版本都附带完整包；重跑同一版本时资产会覆盖。
+
 ## 已知限制
 
 - root 模式尚未在真实 Linux + sudo 环境完整验收；root 列目录依赖 GNU `find -printf`
