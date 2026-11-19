@@ -26,6 +26,7 @@ jobs:
       ELECTRON_CUSTOM_DIR: "v{{ version }}"
       ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
       npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+      SHELLDECK_SKIP_ELECTRON_DOWNLOAD: '1'
 
     steps:
       - name: Checkout
@@ -46,14 +47,45 @@ jobs:
           npm config get registry
           npm config get disturl
 
-      - name: Cache Electron
+      - name: Cache Electron runtime
         uses: actions/cache@v4
         with:
-          path: ~\AppData\Local\electron\Cache
-          key: electron-${{ runner.os }}-45.3.4
+          path: D:\electron-dist
+          key: electron-win32-x64-45.3.4
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare Electron runtime
+        shell: pwsh
+        run: |
+          $dist = 'D:\electron-dist'
+          if (-not (Test-Path (Join-Path $dist 'electron.exe'))) {
+            $zip = Join-Path $env:RUNNER_TEMP 'electron.zip'
+            $urls = @(
+              'https://github.com/electron/electron/releases/download/v45.3.4/electron-v45.3.4-win32-x64.zip',
+              'https://cdn.npmmirror.com/binaries/electron/45.3.4/electron-v45.3.4-win32-x64.zip',
+              'https://mirrors.huaweicloud.com/electron/45.3.4/electron-v45.3.4-win32-x64.zip'
+            )
+            $ok = $false
+            foreach ($url in $urls) {
+              Write-Host "Downloading Electron: $url"
+              Remove-Item $zip -Force -ErrorAction SilentlyContinue
+              curl.exe -L --fail --retry 1 --connect-timeout 20 --max-time 240 -o $zip $url
+              if ($LASTEXITCODE -eq 0 -and (Test-Path $zip) -and ((Get-Item $zip).Length -gt 100MB)) {
+                $ok = $true
+                break
+              }
+            }
+            if (-not $ok) { throw 'Electron runtime download failed' }
+            Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
+            Expand-Archive -LiteralPath $zip -DestinationPath $dist -Force
+          }
+          $target = 'node_modules/electron/dist'
+          Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item -Path (Join-Path $dist '*') -Destination $target -Recurse -Force
+          Set-Content -Path 'node_modules/electron/path.txt' -Value 'electron.exe' -NoNewline
 
       - name: Validate version
         shell: pwsh
