@@ -184,6 +184,16 @@ jobs:
               Write-Warning "delete workflow run $($run.id) failed: $($_.Exception.Message)"
             }
           }
+          $releases = @(Invoke-RestMethod -Headers $headers -Uri "$api/releases?per_page=100")
+          $oldReleases = $releases | Sort-Object -Property published_at -Descending | Select-Object -Skip 10
+          foreach ($release in $oldReleases) {
+            try {
+              Invoke-RestMethod -Method Delete -Headers $headers -Uri "$api/releases/$($release.id)" | Out-Null
+              Write-Host "deleted release $($release.tag_name)"
+            } catch {
+              Write-Warning "delete release $($release.tag_name) failed: $($_.Exception.Message)"
+            }
+          }
           $deps = @(Invoke-RestMethod -Headers $headers -Uri "$api/deployments?per_page=100")
           $latestByEnv = @{}
           foreach ($dep in $deps) {
