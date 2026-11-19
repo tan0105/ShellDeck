@@ -13,12 +13,12 @@ Windows 专用、免登录、绿色便携的 SSH/SFTP 桌面工作台。
 - 会话工作区：1/2/4/6/9 格、按布局容量自动分页、拖动换位、放大、自动/手动文字缩放、重复会话确认
 - 服务器列表：单击切换，右键菜单直接打开终端、文件、编辑、复制密码或删除
 - 主题：浅色/深色模式切换（太阳/月亮图标），深色使用 IntelliJ IDEA 风格配色
-- SSH 终端：多会话并发、PTY、断线重连、`sudo -i` 自动填密码、常用指令（最多 50 条）和 `{{参数}}` 替换
+- SSH 终端：多会话并发、PTY、断线重连、`sudo -i` 自动填密码、常用指令（不限数量、支持快速搜索）和 `{{参数}}` 替换
 - SFTP：列目录、路径跳转、上传文件/文件夹、上传下载进度/速度/ETA、同名覆盖确认、下载、文本编辑（≤2 MB）、权限修改、重命名、删除、root 模式
 - root 模式：使用服务器保存的密码；密码错误时弹框重填（仅本次会话）；切换 root 保持当前目录
 - 系统集成：关闭到托盘、托盘菜单、单实例（再次启动恢复并聚焦已有窗口，不改变大小）、窗口状态恢复、退出前运行中任务确认
 - 数据：`data/ssh.db`（WAL，明文），备份/恢复，数据目录入口
-- 更新：当前暂时移除应用内更新配置；更新方式为退出后替换 `runtime` 目录，更新签名和 helper 代码保留待后续启用
+- 更新：GitHub Releases 检查、app.asar 增量安装、签名校验、更新弹窗和左下角新版本提示；Electron/原生模块/启动器变化需整包手动更新
 
 ## 分发结构
 
@@ -80,14 +80,30 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 
 ## 更新
 
-当前版本暂不提供应用内更新配置。更新方式：退出程序，用新版本的 `runtime` 目录覆盖旧目录，保留顶层 `data`；入口有变化时替换整个文件夹并保留 `data`。更新签名清单和 helper 代码保留，后续再设计具体更新流程。
+应用内更新走 GitHub Releases：
 
-发布签名私钥保存在项目内 `.release-keys/private.pem`，该目录已在 `.gitignore`，**禁止提交 Git**；请另存一份密码本备份。签名默认读取该路径，也可用 `--key` 或 `SHELLDECK_RELEASE_KEY` 指定其他位置；应用内置公钥在 `electron/updater.cjs`。
+- GitHub 仓库内置在 `shared/update-config.json`，不在设置里暴露地址
+- 「设置 → 更新」只选择网络方式：自动、直连、内置加速或自定义加速前缀；自动模式先直连，失败后依次尝试内置加速
+- 每次 Release 上传 `app.asar`、`release.json`、`release.json.sig`
+- 普通更新只下载并替换 `runtime/resources/app.asar`，数据目录不动
+- Electron、原生模块或入口启动器变化时，用 `--format full` 生成整包清单；整包目前需手动替换 `runtime`
+- 加速服务只转发请求，不改变签名校验；清单和资产仍按内置公钥、SHA-256 校验
+
+生成签名清单（私钥在项目内 `.release-keys/private.pem`，已在 `.gitignore`，另存密码本备份）：
+
+```bash
+npm run release -- --version 0.2.0 \
+  --file release/ShellDeck/runtime/resources/app.asar \
+  --url https://github.com/tan0105/ShellDeck/releases/latest/download/app.asar \
+  --notes "更新说明"
+```
+
+应用内置公钥在 `electron/updater.cjs`；签名默认读取 `.release-keys/private.pem`，也可用 `--key` 或 `SHELLDECK_RELEASE_KEY` 指定其他位置。
 
 ## 已知限制（第一版）
 
 - root 模式尚未在真实 Linux + sudo 环境验收；测试服务没有 sudo，仅验证了普通 SFTP 和错误路径。root 列目录依赖 GNU `find -printf`。
-- 应用内更新界面暂时移除，更新为手动替换 `runtime`/整个文件夹；helper 的替换、备份、重启和失败回滚已单独验证。
+- app.asar 更新要求 Electron 版本一致；整包自动替换和二进制差分更新暂未实现，整包需要手动替换 `runtime`。GitHub 更新假定仓库公开、无需认证。
 - 密钥登录已用本地 SSH 密钥服务验证终端连接；SFTP 使用同一套认证参数。密码、私钥、口令均为本机明文存储。
 - 顶层入口启动器依赖 Windows 自带的 .NET Framework 4.x；入口和程序都未签名，首次运行可能触发 SmartScreen 或杀软提示。
 - AGW 源当前按静态目录布局读取；没有厂家接口规格时不做字段映射。

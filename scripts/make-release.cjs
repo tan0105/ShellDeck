@@ -8,14 +8,24 @@ function arg(name, fallback) {
 }
 
 const version = arg('version')
-const file = arg('file', path.join('release', 'ShellDeck', 'runtime', 'ShellDeckRuntime.exe'))
-const url = arg('url', 'ShellDeck.exe')
+const format = arg('format', 'asar') === 'full' ? 'full' : 'asar'
+const file = arg('file', format === 'full'
+  ? path.join('release', 'ShellDeck-runtime.zip')
+  : path.join('release', 'ShellDeck', 'runtime', 'resources', 'app.asar'))
+const url = arg('url', format === 'full' ? 'ShellDeck-runtime.zip' : 'app.asar')
 const notes = arg('notes', '')
 const outDir = arg('out', 'release')
 const keyPath = arg('key', process.env.SHELLDECK_RELEASE_KEY || path.join('.release-keys', 'private.pem'))
+const electronVersion = arg('electron', (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'node_modules', 'electron', 'package.json'), 'utf8')).version
+  } catch {
+    return ''
+  }
+})())
 
 if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
-  console.error('usage: npm run release -- --version 0.2.0 --file release/ShellDeck.exe --url https://.../ShellDeck.exe --notes "更新说明"')
+  console.error('usage: npm run release -- --version 0.2.0 --format asar --file release/ShellDeck/runtime/resources/app.asar --url https://github.com/owner/repo/releases/latest/download/app.asar --notes "更新说明"')
   process.exit(1)
 }
 if (!fs.existsSync(file)) {
@@ -35,6 +45,8 @@ const manifest = {
   version,
   publishedAt: new Date().toISOString(),
   minSupportedVersion: '0.0.1',
+  format,
+  electronVersion,
   notes,
   assets: {
     'win-x64': {

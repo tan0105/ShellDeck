@@ -12,6 +12,7 @@ asarUnpack:
 files:
   - dist/**
   - electron/**
+  - shared/**
   - package.json
 extraResources:
   - from: resources

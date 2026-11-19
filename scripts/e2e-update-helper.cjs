@@ -121,6 +121,38 @@ async function main() {
   if (!/rolled back and restarted/.test(logText)) throw new Error('helper log missing rollback: ' + logText)
   log('rollback and restart ok')
   stopTestApp()
+
+  log('testing asar replacement')
+  const targetAsar = path.join(testDir, 'resources', 'app.asar')
+  const backupAsar = targetAsar + '.previous'
+  const newPayload = path.join(tmpDir, 'payload.bin')
+  const originalAsarHash = hash(targetAsar)
+  fs.copyFileSync(targetAsar, newPayload)
+  fs.appendFileSync(newPayload, Buffer.from('ASAR-UPDATE-MARKER'))
+  const newAsarHash = hash(newPayload)
+  const asarDummy = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' })
+  setTimeout(() => { try { asarDummy.kill() } catch { /* gone */ } }, 1200)
+  await new Promise((resolve, reject) => {
+    const child = spawn('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
+      '-Mode', 'asar',
+      '-Launcher', 'C:/Windows/System32/whoami.exe',
+      '-TargetFile', targetAsar,
+      '-NewFile', newPayload,
+      '-BackupFile', backupAsar,
+      '-TargetPid', String(asarDummy.pid),
+      '-LogPath', logPath,
+    ], { windowsHide: true })
+    child.on('error', reject)
+    child.on('close', code => code === 0 ? resolve() : reject(new Error('asar helper exited ' + code)))
+  })
+  if (!await waitFor(() => fs.existsSync(targetAsar) && hash(targetAsar) === newAsarHash, 15000)) throw new Error('asar was not replaced')
+  if (!await waitFor(() => fs.existsSync(backupAsar) && hash(backupAsar) === originalAsarHash, 10000)) throw new Error('asar backup incorrect')
+  const asarLog = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''
+  if (!/new version started/.test(asarLog)) throw new Error('helper log missing asar start: ' + asarLog)
+  log('asar replace and backup ok')
+
+  stopTestApp()
   await waitFor(() => !appRunning(), 6000)
   await sleep(800)
   await removeWithRetry(testDir)

@@ -4,7 +4,6 @@ const crypto = require('node:crypto')
 const Database = require('better-sqlite3')
 
 const MAX_SERVERS = 50
-const MAX_COMMANDS = 50
 
 let db = null
 let paths = null
@@ -253,8 +252,6 @@ function saveCommand(input) {
   if (existing) {
     database.prepare('UPDATE commands SET name=?, kind=?, body=?, updated_at=? WHERE id=?').run(name, kind, body, stamp, id)
   } else {
-    const count = database.prepare('SELECT COUNT(*) AS count FROM commands').get().count
-    if (count >= MAX_COMMANDS) throw new Error(`最多保存 ${MAX_COMMANDS} 条指令`)
     id = crypto.randomUUID()
     database.prepare('INSERT INTO commands (id, name, kind, body, created_at, updated_at) VALUES (?,?,?,?,?,?)').run(id, name, kind, body, stamp, stamp)
   }

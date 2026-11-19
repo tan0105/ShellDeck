@@ -1,4 +1,5 @@
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { _electron: electron } = require('playwright-core')
@@ -6,7 +7,7 @@ const { _electron: electron } = require('playwright-core')
 const root = path.join(__dirname, '..')
 const appDir = process.env.SHELLDECK_APP_DIR || path.join(root, 'release', 'ShellDeck', 'runtime')
 const appExeName = process.env.SHELLDECK_APP_EXE || 'ShellDeckRuntime.exe'
-const dataDir = process.env.SHELLDECK_DATA_DIR || path.join(root, 'release', 'ShellDeck', 'data')
+const dataDir = process.env.SHELLDECK_DATA_DIR || path.join(os.tmpdir(), 'shelldeck-e2e-packaged-data')
 const shotDir = path.join(root, 'screenshots')
 const tmpDir = path.join(root, '.e2e-tmp')
 
@@ -74,17 +75,18 @@ async function main() {
     if (process.env.SHELLDECK_EXPECT_FOLDER === '1' && !shellInfo.folderMode) throw new Error('expected folder mode, got: ' + JSON.stringify(shellInfo))
     log('packaged app info', JSON.stringify(info))
     log('folder mode', String(shellInfo.folderMode))
-    if (shellInfo.folderMode) {
-      await page.locator('.ssh-topactions button', { hasText: '设置' }).click()
-      await page.waitForSelector('.settings-dialog')
-      const settingsText = await page.locator('.settings-dialog').textContent()
-      if (!/文件夹版不执行应用内替换/.test(settingsText)) throw new Error('folder-mode update notice missing')
-      await page.locator('.settings-dialog .um-close').click()
-    }
+    await page.locator('.ssh-topactions button', { hasText: '设置' }).click()
+    await page.waitForSelector('.settings-dialog')
+    const settingsText = await page.locator('.settings-dialog').textContent()
+    if (!settingsText.includes('直连失败后尝试加速')) throw new Error('accelerator settings missing')
+    const accelOptions = await page.locator('.settings-dialog select option').allTextContents()
+    if (!accelOptions.some(text => text.includes('ghproxy.net'))) throw new Error('built-in accelerators missing')
+    if (settingsText.includes('owner/repo')) throw new Error('GitHub repo should be built in')
+    await page.locator('.settings-dialog .um-close').click()
 
     const dbPath = path.join(dataDir, 'ssh.db')
-    if (!fs.existsSync(dbPath)) throw new Error('database was not created next to packaged exe')
-    log('database created next to exe', dbPath)
+    if (!fs.existsSync(dbPath)) throw new Error('database was not created in the data directory')
+    log('database created in data dir', dbPath)
 
     await page.evaluate(() => window.shellDeck.settings.set('update.autoCheck', '0'))
     await page.locator('button.ssh-newserver').click()
@@ -125,7 +127,19 @@ async function main() {
     }, updateSrc)
     if (updateResult.checked.status !== 'available') throw new Error('packaged update check failed: ' + JSON.stringify(updateResult.checked))
     if (updateResult.downloaded.status !== 'ready') throw new Error('packaged update download failed: ' + JSON.stringify(updateResult.downloaded))
-    log('packaged signed update check/download ok')
+    await page.waitForFunction(() => document.querySelector('.ssh-version-badge')?.textContent.includes('待安装'), null, { timeout: 5000 })
+    await page.locator('.ssh-version').click()
+    await page.waitForSelector('.update-dialog')
+    const updateDialogText = await page.locator('.update-dialog').innerText()
+    for (const text of ['0.2.0', '立即更新', '下次再说']) {
+      if (!updateDialogText.includes(text)) throw new Error('packaged update dialog missing ' + text)
+    }
+    if (!(await page.locator('.update-dialog .update-box').isVisible())) throw new Error('update details are not rendered')
+    if (!(await page.locator('.update-dialog .um-dialog-actions .um-primary', { hasText: '立即更新' }).isVisible())) throw new Error('update action is not rendered')
+    const actions = await page.locator('.update-dialog .um-dialog-actions button').count()
+    if (actions !== 2) throw new Error('expected exactly two update actions, got ' + actions)
+    await page.locator('.update-dialog .um-close').click()
+    log('packaged signed update check/download and dialog ok')
 
     await app.evaluate(({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows()[0]

@@ -5,6 +5,7 @@ import SshWorkspace from './SshWorkspace.vue'
 import ServerEditor from './ServerEditor.vue'
 import CommandsDialog from './CommandsDialog.vue'
 import SettingsDialog from './SettingsDialog.vue'
+import UpdateDialog from './UpdateDialog.vue'
 
 const servers = ref([])
 const commands = ref([])
@@ -34,6 +35,13 @@ const settingsOpen = ref(false)
 const dataBusy = ref(false)
 const info = ref({})
 const dataError = ref('')
+const acceleratorMode = ref('auto')
+const acceleratorCustom = ref('')
+const autoCheck = ref(true)
+const updateState = ref({ status: 'idle' })
+const updateError = ref('')
+const updateBusy = ref(false)
+const updateOpen = ref(false)
 
 function showToast(message, kind = 'info') {
   if (!message) return
@@ -52,15 +60,28 @@ async function loadCommands() {
 onMounted(async () => {
   unsubscribers = [
     window.shellDeck.on('app:toast', payload => showToast(payload.message, payload.kind)),
+    window.shellDeck.on('updater:state', state => {
+      updateState.value = state
+      if (state.status === 'error') updateError.value = state.error || ''
+    }),
   ]
   try {
-    const [info, savedTheme] = await Promise.all([
+    const [appInfo, savedTheme, savedAccel, savedAccelCustom, savedAuto, initialState] = await Promise.all([
       window.shellDeck.app.info(),
       window.shellDeck.settings.get('ui.theme'),
+      window.shellDeck.settings.get('update.accelerator'),
+      window.shellDeck.settings.get('update.acceleratorCustom'),
+      window.shellDeck.settings.get('update.autoCheck'),
+      window.shellDeck.updater.state(),
       loadServers(),
       loadCommands(),
     ])
-    appVersion.value = info.version || ''
+    info.value = appInfo
+    appVersion.value = appInfo.version || ''
+    acceleratorMode.value = savedAccel || 'auto'
+    acceleratorCustom.value = savedAccelCustom || ''
+    autoCheck.value = savedAuto !== '0'
+    updateState.value = initialState || { status: 'idle' }
     applyTheme(savedTheme === 'dark' ? 'dark' : 'light')
   } catch (error) {
     showToast(error.message || '读取本地数据失败', 'error')
@@ -205,11 +226,83 @@ async function removeCommand(id) {
 async function openSettings() {
   settingsOpen.value = true
   dataError.value = ''
+  updateError.value = ''
   try {
-    info.value = await window.shellDeck.app.info()
+    const [appInfo, accel, accelCustom, auto, state] = await Promise.all([
+      window.shellDeck.app.info(),
+      window.shellDeck.settings.get('update.accelerator'),
+      window.shellDeck.settings.get('update.acceleratorCustom'),
+      window.shellDeck.settings.get('update.autoCheck'),
+      window.shellDeck.updater.state(),
+    ])
+    info.value = appInfo
+    acceleratorMode.value = accel || 'auto'
+    acceleratorCustom.value = accelCustom || ''
+    autoCheck.value = auto !== '0'
+    updateState.value = state
   } catch (error) {
     showToast(error.message || '读取设置失败', 'error')
   }
+}
+async function saveAccelerator({ mode, custom }) {
+  updateBusy.value = true
+  updateError.value = ''
+  try {
+    await Promise.all([
+      window.shellDeck.settings.set('update.accelerator', mode),
+      window.shellDeck.settings.set('update.acceleratorCustom', custom || ''),
+    ])
+    acceleratorMode.value = mode
+    acceleratorCustom.value = custom || ''
+    showToast('更新加速设置已保存')
+  } catch (error) {
+    updateError.value = error.message || '保存更新加速设置失败'
+  } finally {
+    updateBusy.value = false
+  }
+}
+async function toggleAutoCheck(value) {
+  autoCheck.value = value
+  try { await window.shellDeck.settings.set('update.autoCheck', value ? '1' : '0') }
+  catch (error) { showToast(error.message || '保存设置失败', 'error') }
+}
+async function checkUpdate() {
+  updateBusy.value = true
+  updateError.value = ''
+  try {
+    updateState.value = await window.shellDeck.updater.check()
+  } catch (error) {
+    updateError.value = error.message || '检查更新失败'
+  } finally {
+    updateBusy.value = false
+  }
+}
+async function updateNow() {
+  updateBusy.value = true
+  updateError.value = ''
+  try {
+    let state = updateState.value
+    if (!state.asset || ['idle', 'error', 'up-to-date'].includes(state.status)) {
+      state = await window.shellDeck.updater.check()
+      updateState.value = state
+    }
+    if (state.status === 'available') {
+      state = await window.shellDeck.updater.download()
+      updateState.value = state
+    }
+    if (state.status === 'ready' && info.value.packaged && state.asset?.format !== 'full') {
+      await window.shellDeck.updater.install()
+    }
+  } catch (error) {
+    updateError.value = error.message || '更新失败'
+  } finally {
+    updateBusy.value = false
+  }
+}
+function openUpdateDialog() {
+  updateOpen.value = true
+  updateError.value = ''
+  if (updateState.value.status === 'idle') checkUpdate()
 }
 async function openDataDir() {
   try { await window.shellDeck.app.openDataDir() }
@@ -252,7 +345,9 @@ async function restoreDatabase() {
       :commands="commands"
       :version="appVersion"
       :theme="theme"
+      :update-state="updateState"
       @toggle-theme="toggleTheme"
+      @open-update="openUpdateDialog"
       @notice="showToast"
       @new-server="openNewServer"
       @edit-server="openEditServer"
@@ -270,10 +365,30 @@ async function restoreDatabase() {
       :info="info"
       :data-error="dataError"
       :data-busy="dataBusy"
+      :accelerator-mode="acceleratorMode"
+      :accelerator-custom="acceleratorCustom"
+      :auto-check="autoCheck"
+      :update-state="updateState"
+      :update-error="updateError"
+      :busy="updateBusy"
       @close="settingsOpen = false"
       @backup="backupDatabase"
       @restore="restoreDatabase"
       @open-data="openDataDir"
+      @save-accelerator="saveAccelerator"
+      @toggle-auto="toggleAutoCheck"
+      @check="checkUpdate"
+      @open-update="openUpdateDialog"
+    />
+    <UpdateDialog
+      :open="updateOpen"
+      :current-version="appVersion"
+      :state="updateState"
+      :error="updateError"
+      :busy="updateBusy"
+      :packaged="Boolean(info.packaged)"
+      @close="updateOpen = false"
+      @update-now="updateNow"
     />
 
     <div v-if="toast.visible" class="app-toast" :class="toast.kind">{{ toast.message }}</div>

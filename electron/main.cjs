@@ -188,6 +188,7 @@ function registerIpc() {
       if (String(value) === '0') clearTimeout(autoCheckTimer)
       else scheduleAutoUpdate(true)
     }
+    if (key === 'update.accelerator' || key === 'update.acceleratorCustom') scheduleAutoUpdate(true)
     return true
   })
 
@@ -331,7 +332,7 @@ function scheduleAutoUpdate(initial) {
     : 24 * 60 * 60 * 1000 + Math.floor(Math.random() * 3600 * 1000)
   autoCheckTimer = setTimeout(async () => {
     if (db.getSetting('update.autoCheck') === '0') return
-    if (db.listSources().some(source => source.enabled)) {
+    if (updater.hasSources()) {
       try { await updater.check({ manual: false }) } catch { /* Background check stays quiet. */ }
     }
     scheduleAutoUpdate(false)

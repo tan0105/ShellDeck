@@ -487,6 +487,38 @@ button {
   font-size: 9.5px;
 }
 
+.cd-search {
+  width: 100%;
+  height: 28px;
+  margin: 0 0 7px;
+  padding: 0 8px;
+  border: 1px solid #e4e8ef;
+  border-radius: 6px;
+  background: #fff;
+  color: #202b3c;
+  font-size: 11.5px;
+  outline: none;
+}
+
+.cd-search::placeholder {
+  color: #a7b0bf;
+}
+
+.cd-search:focus {
+  border-color: #8299ee;
+  box-shadow: 0 0 0 3px #4169e910;
+}
+
+html.theme-dark .cd-search {
+  background: #45494a;
+  border-color: #5a5a5a;
+  color: #bbbbbb;
+}
+
+html.theme-dark .cd-search::placeholder {
+  color: #8c969f;
+}
+
 .cd-items {
   flex: 1;
   min-height: 0;
@@ -677,16 +709,19 @@ button {
   font-size: 10.5px;
 }
 
-.settings-auto {
+label.settings-auto {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10.5px;
+  margin: 9px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
   color: #7d8baa;
   cursor: pointer;
 }
 
-.settings-auto input {
+label.settings-auto input {
+  flex: 0 0 14px;
   width: 14px;
   height: 14px;
   margin: 0;
@@ -1143,6 +1178,8 @@ html.theme-dark .cd-item.active { background: #214283; border-color: #4a88c7; co
 html.theme-dark .cd-kind { background: #4a5054; color: #a9b7c6; }
 html.theme-dark .settings-section { border-color: #4a4a4a; }
 html.theme-dark .settings-auto { color: #a9b7c6; }
+html.theme-dark .settings-update-line { color: #a9b7c6; }
+html.theme-dark .settings-update-line b { color: #e2e2e2; }
 html.theme-dark .ssh-editor { background: #2b2b2b; border-color: #555; color: #a9b7c6; }
 html.theme-dark .ssh-permpresets .pv-pick { background: #4c5052; border-color: #606366; color: #bbbbbb; }
 html.theme-dark .ssh-permpresets .pv-pick.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
@@ -1329,6 +1366,24 @@ html.theme-dark .server-detail-row > code,
 html.theme-dark .server-detail-note-row > p { color: #bbbbbb; }
 html.theme-dark .server-detail-copy { color: #82a6d4; }
 html.theme-dark .server-detail-tags i { background: #4a5054; color: #a9b7c6; }
+
+/* Dark session list and picker */
+html.theme-dark .ssh-session-row { background: #313335; border-color: #4a4a4a; color: #ffffff; }
+html.theme-dark .ssh-session-row:hover { background: #3f4244; border-color: #4a88c7; }
+html.theme-dark .ssh-session-icon { background: #214283; color: #9fc8ff; }
+html.theme-dark .ssh-session-row.file .ssh-session-icon { background: #4a4030; color: #e2b872; }
+html.theme-dark .ssh-session-route { color: #bdbdbd; }
+html.theme-dark .um-dialog .ssh-session-target { color: #e6e6e6; }
+html.theme-dark .ssh-picker-actions button { background: #313335; border-color: #4a4a4a; }
+html.theme-dark .ssh-picker-actions button.terminal { background: #26344a; border-color: #3a5a90; }
+html.theme-dark .ssh-picker-actions button b { color: #ffffff; }
+html.theme-dark .ssh-picker-actions button.terminal b { color: #ffffff; }
+html.theme-dark .ssh-picker-actions button span { color: #d0d0d0; }
+html.theme-dark .ssh-sessions-dialog .um-close,
+html.theme-dark .ssh-session-picker .um-close { color: #ffffff; }
+html.theme-dark .ssh-sessions-dialog .um-dialog-actions button,
+html.theme-dark .ssh-session-picker .um-dialog-actions button { color: #ffffff; }
+html.theme-dark .ssh-sessions-dialog .ssh-filedir { color: #f0f0f0; }
 html.theme-dark .ssh-serverrow.selected .ssh-servertag { background: #5b6575; color: #e8eef8; }
 
 /* Hidden file toggle */
@@ -1395,3 +1450,76 @@ html.theme-dark .sd-tagempty { color: #808080; }
 html.theme-dark .settings-head { color: #a9b7c6; }
 html.theme-dark .settings-head b { color: #e6edf3; }
 html.theme-dark .settings-head > span { color: #a9b7c6; }
+
+/* Version footer update badge */
+.ssh-version {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 4px 0;
+  border: 0;
+  border-top: 1px solid #eef1f5;
+  background: none;
+  color: #98a2b1;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ssh-version:hover { color: #2f5bea; }
+.ssh-version.available { color: #2f5bea; }
+.ssh-version-badge {
+  margin-left: auto;
+  border-radius: 10px;
+  padding: 1px 7px;
+  background: #3863e8;
+  color: #fff;
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+.ssh-version-badge.downloading { background: #4a6070; }
+.ssh-version-badge.ready { background: #2f7d5e; }
+html.theme-dark .ssh-version { color: #808080; border-color: #4a4a4a; }
+html.theme-dark .ssh-version:hover,
+html.theme-dark .ssh-version.available { color: #9fc8ff; }
+
+/* Update dialog */
+.update-dialog { width: min(560px, calc(100vw - 32px)); padding: 20px 22px; }
+.update-dialog h2 { margin-bottom: 3px; }
+.update-sub { margin: 0 0 10px; font-size: 11.5px; color: #98a2b1; font-family: ui-monospace, Consolas, monospace; }
+.update-status { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #8b96a6; }
+.update-status b { color: #425066; font-size: 12.5px; }
+.update-empty { margin: 10px 0; padding: 12px; border: 1px dashed #dfe5ef; border-radius: 8px; background: #fafbfd; }
+.update-empty p { margin: 0 0 8px; font-size: 11.5px; line-height: 1.6; color: #7d8baa; }
+.update-empty p:last-child { margin-bottom: 0; }
+.update-box { margin-top: 9px; padding: 10px 12px; border: 1px solid #e6eaf1; border-radius: 8px; background: #fafbfd; }
+.update-versionline { display: flex; align-items: baseline; gap: 8px; font-size: 11px; color: #98a2b1; }
+.update-versionline b { font-size: 15px; color: #2f5bea; }
+.update-progress { height: 6px; margin-top: 8px; border-radius: 3px; background: #e9edf4; overflow: hidden; }
+.update-progress i { display: block; height: 100%; background: #3863e8; transition: width 0.2s; }
+.update-progress-text { margin: 4px 0 0; font-size: 10.5px; color: #7d8baa; }
+ html.theme-dark .update-sub { color: #808080; }
+html.theme-dark .update-status { color: #a9b7c6; }
+html.theme-dark .update-status b { color: #dddddd; }
+html.theme-dark .update-empty { background: #313335; border-color: #555; }
+html.theme-dark .update-empty p { color: #a9b7c6; }
+html.theme-dark .update-box { background: #313335; border-color: #555; }
+html.theme-dark .update-versionline { color: #808080; }
+html.theme-dark .update-versionline b { color: #7fb2ff; }
+html.theme-dark .update-progress { background: #4a4a4a; }
+html.theme-dark .update-progress i { background: #4a88c7; }
+html.theme-dark .update-progress-text { color: #a9b7c6; }
+html.theme-dark .update-notes { background: #2b2b2b; border-color: #4a4a4a; color: #a9b7c6; }
+
+/* Update accelerator controls */
+.settings-github { display: flex; gap: 6px; margin-top: 8px; }
+.settings-github input,
+.settings-github select { flex: 1; min-width: 0; height: 30px; border: 1px solid #e4e8ef; border-radius: 6px; padding: 0 8px; font-size: 12px; outline: none; background: #fff; color: #202b3c; }
+.settings-github input:focus,
+.settings-github select:focus { border-color: #8299ee; box-shadow: 0 0 0 3px #4169e910; }
+.settings-github .ssh-softbtn { height: 30px; font-size: 11px; padding: 0 9px; }
+.settings-github.settings-accel-custom { margin-top: 6px; }
+html.theme-dark .settings-github input,
+html.theme-dark .settings-github select { background: #45494a; border-color: #5a5a5a; color: #bbbbbb; }

@@ -13,7 +13,14 @@ if (-not (Test-Path -LiteralPath $runtimeExe)) { throw "runtime missing: $runtim
 
 Get-Process ShellDeckRuntime, ShellDeck -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 800
-if (Test-Path -LiteralPath $dataDir) { Remove-Item -LiteralPath $dataDir -Recurse -Force }
+
+$dataBackup = $null
+if (Test-Path -LiteralPath $dataDir) {
+  $dataBackup = Join-Path ([IO.Path]::GetTempPath()) ('shelldeck-e2e-data-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  Copy-Item -LiteralPath $dataDir -Destination $dataBackup -Recurse -Force
+  Write-Output ('[folder] data backed up: ' + $dataBackup)
+  Remove-Item -LiteralPath $dataDir -Recurse -Force
+}
 
 $topFiles = @(Get-ChildItem -LiteralPath $Folder -File | Select-Object -ExpandProperty Name)
 if ($topFiles.Count -ne 1 -or $topFiles[0] -ne 'ShellDeck.exe') {
@@ -99,4 +106,9 @@ try {
 }
 finally {
   Get-Process ShellDeckRuntime, ShellDeck -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  if ($dataBackup -and (Test-Path -LiteralPath $dataBackup)) {
+    if (Test-Path -LiteralPath $dataDir) { Remove-Item -LiteralPath $dataDir -Recurse -Force }
+    Move-Item -LiteralPath $dataBackup -Destination $dataDir
+    Write-Output '[folder] original data restored'
+  }
 }

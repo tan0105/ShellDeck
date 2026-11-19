@@ -1,0 +1,10 @@
+{
+  "githubRepo": "tan0105/ShellDeck",
+  "accelerators": [
+    { "id": "ghproxy-net", "name": "ghproxy.net", "prefix": "https://ghproxy.net/" },
+    { "id": "gh-proxy-com", "name": "gh-proxy.com", "prefix": "https://gh-proxy.com/" },
+    { "id": "ghfast-top", "name": "ghfast.top", "prefix": "https://ghfast.top/" },
+    { "id": "gh-proxy-net", "name": "gh-proxy.net", "prefix": "https://gh-proxy.net/" },
+    { "id": "ghproxy-link", "name": "ghproxy.link", "prefix": "https://ghproxy.link/" }
+  ]
+}

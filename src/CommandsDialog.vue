@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 
 const props = defineProps({
   open: Boolean,
@@ -13,10 +13,23 @@ const form = reactive({ id: '', name: '', kind: 'command', body: '' })
 const editing = ref(false)
 const pendingDelete = ref(null)
 const localError = ref('')
+const query = ref('')
+
+const filteredCommands = computed(() => {
+  const keyword = query.value.trim().toLowerCase()
+  if (!keyword) return props.commands
+  return props.commands.filter(command => {
+    const kind = command.kind === 'script' ? '脚本' : '命令'
+    return command.name.toLowerCase().includes(keyword)
+      || command.body.toLowerCase().includes(keyword)
+      || kind.includes(keyword)
+  })
+})
 
 watch(() => props.open, open => {
   if (!open) return
   reset()
+  query.value = ''
   pendingDelete.value = null
 })
 watch(() => props.commands, () => {
@@ -57,17 +70,19 @@ function confirmRemove() {
       <section class="um-dialog cd-dialog" role="dialog" aria-modal="true">
         <button class="um-close" type="button" aria-label="关闭" @click="emit('close')">×</button>
         <h2>常用指令</h2>
-        <p class="sd-sub">最多 50 条。命令直接在当前 shell 执行；脚本按当前交互 shell 逐行发送，保留当前目录和环境变量。</p>
+        <p class="sd-sub">命令直接在当前 shell 执行；脚本按当前交互 shell 逐行发送，保留当前目录和环境变量。</p>
         <div class="cd-layout">
           <div class="cd-list">
             <div class="cd-listhead"><b>已保存</b><button type="button" class="ssh-softbtn" @click="reset">＋ 新建</button></div>
+            <input v-model="query" class="cd-search" type="search" placeholder="搜索名称或内容" spellcheck="false" />
             <div class="cd-items">
-              <button v-for="command in commands" :key="command.id" type="button" class="cd-item" :class="{ active: form.id === command.id }" @click="edit(command)">
+              <button v-for="command in filteredCommands" :key="command.id" type="button" class="cd-item" :class="{ active: form.id === command.id }" @click="edit(command)">
                 <span class="cd-kind">{{ command.kind === 'script' ? '脚本' : '命令' }}</span>
                 <span class="cd-name">{{ command.name }}</span>
                 <span class="cd-remove" title="删除" @click.stop="askRemove(command)">×</span>
               </button>
               <p v-if="!commands.length" class="ssh-railempty">还没有常用指令</p>
+              <p v-else-if="!filteredCommands.length" class="ssh-railempty">没有匹配的指令</p>
             </div>
           </div>
           <div class="cd-editor">

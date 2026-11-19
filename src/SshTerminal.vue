@@ -17,6 +17,11 @@ const host = ref(null)
 const state = ref('connecting')
 const error = ref('')
 const selectedCommand = ref('')
+const cmdInput = ref(null)
+const cmdOpen = ref(false)
+const cmdQuery = ref('')
+const cmdActive = ref(0)
+const cmdBox = ref({ left: 8, top: 8, width: 260, maxHeight: 240 })
 const paramOpen = ref(false)
 const paramCommand = ref(null)
 const paramNames = ref([])
@@ -34,6 +39,149 @@ let sudoDecoder = null
 let sudoBuffer = ''
 
 const selected = computed(() => props.commands.find(command => command.id === selectedCommand.value))
+const selectedLabel = computed(() => commandLabel(selected.value))
+const cmdMatches = computed(() => {
+  const query = cmdQuery.value.trim()
+  if (!query) return props.commands
+  return props.commands
+    .map(command => ({ command, score: commandScore(command, query) }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.command.name.localeCompare(b.command.name, 'zh-CN'))
+    .map(item => item.command)
+})
+watch(cmdMatches, matches => {
+  if (cmdActive.value >= matches.length) cmdActive.value = 0
+})
+watch(() => props.commands, list => {
+  if (selectedCommand.value && !list.some(command => command.id === selectedCommand.value)) {
+    selectedCommand.value = ''
+    cmdQuery.value = ''
+  }
+})
+watch(selectedLabel, label => {
+  if (!cmdOpen.value) cmdQuery.value = label
+})
+
+function commandLabel(command) {
+  return command ? `${command.kind === 'script' ? '脚本' : '命令'} · ${command.name}` : ''
+}
+function fuzzyScore(text, query) {
+  const haystack = String(text || '').toLowerCase()
+  const needle = String(query || '').trim().toLowerCase()
+  if (!needle) return 1
+  let score = 0
+  let from = 0
+  let previous = -2
+  for (const char of needle) {
+    const index = haystack.indexOf(char, from)
+    if (index < 0) return 0
+    score += index === previous + 1 ? 4 : 1
+    if (index === 0) score += 4
+    previous = index
+    from = index + 1
+  }
+  return score
+}
+function commandScore(command, query) {
+  const kind = command.kind === 'script' ? '脚本' : '命令'
+  return Math.max(
+    fuzzyScore(command.name, query),
+    fuzzyScore(`${kind} ${command.name}`, query) - 2,
+  )
+}
+function updateCmdBox() {
+  if (!cmdInput.value) return
+  const rect = cmdInput.value.getBoundingClientRect()
+  const width = Math.min(Math.max(rect.width, 260), window.innerWidth - 16)
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+  const spaceBelow = window.innerHeight - rect.bottom - 8
+  const spaceAbove = rect.top - 8
+  const openUp = spaceBelow < 150 && spaceAbove > spaceBelow
+  const maxHeight = Math.max(96, Math.min(280, openUp ? spaceAbove : spaceBelow))
+  cmdBox.value = {
+    left,
+    width,
+    maxHeight,
+    top: openUp ? Math.max(8, rect.top - maxHeight - 6) : rect.bottom + 6,
+  }
+}
+function openCmdCombo() {
+  cmdOpen.value = true
+  cmdActive.value = 0
+  if (selected.value) cmdQuery.value = ''
+  updateCmdBox()
+}
+function closeCmdCombo() {
+  cmdOpen.value = false
+  cmdQuery.value = selected.value ? selectedLabel.value : ''
+  cmdActive.value = 0
+}
+function onCmdInput() {
+  selectedCommand.value = ''
+  cmdOpen.value = true
+  cmdActive.value = 0
+  updateCmdBox()
+}
+function onCmdClick() {
+  if (!cmdOpen.value) openCmdCombo()
+}
+function chooseCommand(command) {
+  selectedCommand.value = command.id
+  cmdQuery.value = commandLabel(command)
+  cmdOpen.value = false
+  cmdActive.value = 0
+}
+function cmdKeydown(event) {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    if (!cmdOpen.value) openCmdCombo()
+    else if (cmdMatches.value.length) cmdActive.value = (cmdActive.value + 1) % cmdMatches.value.length
+    return
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    if (!cmdOpen.value) openCmdCombo()
+    else if (cmdMatches.value.length) cmdActive.value = (cmdActive.value - 1 + cmdMatches.value.length) % cmdMatches.value.length
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    if (cmdOpen.value) {
+      const command = cmdMatches.value[cmdActive.value] || cmdMatches.value[0]
+      if (command) chooseCommand(command)
+      return
+    }
+    if (selected.value) runCommand()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeCmdCombo()
+    cmdInput.value?.blur()
+  }
+}
+function cmdInside(event) {
+  return event.target instanceof Element && Boolean(event.target.closest('.ssh-cmdcombo, .ssh-cmdpop'))
+}
+function closeCmdOutside(event) {
+  if (!cmdOpen.value || cmdInside(event)) return
+  closeCmdCombo()
+}
+function closeCmdLayout() {
+  if (cmdOpen.value) closeCmdCombo()
+}
+function unbindCmdCombo() {
+  window.removeEventListener('mousedown', closeCmdOutside, true)
+  window.removeEventListener('resize', closeCmdLayout)
+  window.removeEventListener('scroll', closeCmdLayout)
+}
+watch(cmdOpen, open => {
+  unbindCmdCombo()
+  if (!open) return
+  window.addEventListener('mousedown', closeCmdOutside, true)
+  window.addEventListener('resize', closeCmdLayout)
+  window.addEventListener('scroll', closeCmdLayout)
+})
 
 onMounted(() => mount())
 onBeforeUnmount(() => dispose())
@@ -189,6 +337,7 @@ function dispose() {
   resetSudo()
   unbindTerminalMenu()
   closeTerminalMenu()
+  unbindCmdCombo()
   unsubscribeAll()
   if (observer) { observer.disconnect(); observer = null }
   window.shellDeck.terminal.close(props.sessionId).catch(() => {})
@@ -339,12 +488,44 @@ function confirmParameters() {
         <span class="ssh-termhint">Ctrl+Shift+C 复制 · Ctrl+Shift+V 粘贴</span>
       </div>
       <div v-if="commands.length || canManageCommands" class="ssh-cmdbar">
-        <select v-model="selectedCommand" class="ssh-cmdselect" aria-label="常用指令">
-          <option value="">选择常用指令…</option>
-          <option v-for="command in commands" :key="command.id" :value="command.id">{{ command.kind === 'script' ? '脚本' : '命令' }} · {{ command.name }}</option>
-        </select>
+        <div class="ssh-cmdcombo">
+          <input
+            ref="cmdInput"
+            v-model="cmdQuery"
+            class="ssh-cmdsearch"
+            type="text"
+            placeholder="搜索常用指令…"
+            aria-label="搜索常用指令"
+            autocomplete="off"
+            spellcheck="false"
+            @focus="openCmdCombo"
+            @click="onCmdClick"
+            @input="onCmdInput"
+            @keydown="cmdKeydown"
+            @keydown.tab="closeCmdCombo"
+          />
+        </div>
         <button type="button" class="ssh-cmdrun" :disabled="!selected || state !== 'ready'" @click="runCommand">执行</button>
         <button v-if="canManageCommands" type="button" class="ssh-cmdmanage" @click="emit('manage-commands')">管理指令</button>
+        <Teleport to="body">
+          <div v-if="cmdOpen" class="ssh-cmdpop" :style="{ left: cmdBox.left + 'px', top: cmdBox.top + 'px', width: cmdBox.width + 'px', maxHeight: cmdBox.maxHeight + 'px' }" role="listbox" aria-label="常用指令搜索结果">
+            <button
+              v-for="(command, index) in cmdMatches"
+              :key="command.id"
+              type="button"
+              class="ssh-cmdoption"
+              :class="{ active: index === cmdActive, script: command.kind === 'script' }"
+              role="option"
+              :aria-selected="index === cmdActive"
+              @mousedown.prevent="chooseCommand(command)"
+              @mouseenter="cmdActive = index"
+            >
+              <span class="ssh-cmdkind">{{ command.kind === 'script' ? '脚本' : '命令' }}</span>
+              <span class="ssh-cmdname">{{ command.name }}</span>
+            </button>
+            <p v-if="!cmdMatches.length" class="ssh-cmdempty">没有匹配指令</p>
+          </div>
+        </Teleport>
       </div>
       <div ref="host" class="pv-terminal" @contextmenu.prevent="openTerminalMenu($event)">
         <div v-if="state !== 'ready'" class="pv-terminal-mask">

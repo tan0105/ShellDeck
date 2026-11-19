@@ -227,28 +227,39 @@ async function main() {
     ]))
     log('excel-style import ok', JSON.stringify(importResult))
 
-    const updateError = await page.evaluate(async () => {
-      try { await window.shellDeck.updater.check(); return '' }
-      catch (error) { return error.message }
-    })
-    log('update check without source', updateError)
-    if (!/更新源/.test(updateError)) throw new Error('expected update source error, got: ' + updateError)
+    const defaultAccel = await page.evaluate(() => window.shellDeck.settings.get('update.accelerator'))
+    if (defaultAccel) throw new Error('expected built-in default accelerator, got: ' + defaultAccel)
+    const runningVersion = await page.evaluate(() => window.shellDeck.updater.state().currentVersion)
+    log('built-in update defaults ok', runningVersion)
 
-    const updateResult = await page.evaluate(async dir => {
+    const checked = await page.evaluate(async dir => {
       await window.shellDeck.updater.addSource({ name: 'E2E 本地源', type: 'local', baseUrl: dir, priority: 1, enabled: true })
-      const checked = await window.shellDeck.updater.check()
-      const downloaded = await window.shellDeck.updater.download()
-      let installError = ''
-      try { await window.shellDeck.updater.install() } catch (error) { installError = error.message }
-      return { checked, downloaded, installError }
+      return window.shellDeck.updater.check()
     }, updateSrc)
-    if (updateResult.checked.status !== 'available' || updateResult.checked.version !== '0.2.0') {
-      throw new Error('update check did not find 0.2.0: ' + JSON.stringify(updateResult.checked))
+    if (checked.status !== 'available' || checked.version !== '0.2.0') {
+      throw new Error('update check did not find 0.2.0: ' + JSON.stringify(checked))
     }
-    if (updateResult.downloaded.status !== 'ready') throw new Error('update download failed: ' + JSON.stringify(updateResult.downloaded))
-    if (!fs.existsSync(updateResult.downloaded.asset.localPath)) throw new Error('downloaded update file missing')
-    if (!/开发模式/.test(updateResult.installError)) throw new Error('install guard missing: ' + updateResult.installError)
-    log('signed update check/download ok')
+    await page.waitForSelector('.ssh-version.available', { timeout: 5000 })
+    const badge = (await page.locator('.ssh-version-badge').textContent()).trim()
+    if (!badge.includes('新版本')) throw new Error('version badge missing: ' + badge)
+    await page.locator('.ssh-version').click()
+    await page.waitForSelector('.update-dialog')
+    const updateDialogText = await page.locator('.update-dialog').textContent()
+    for (const text of ['0.2.0', '立即更新', '下次再说', 'E2E 更新清单测试']) {
+      if (!updateDialogText.includes(text)) throw new Error('update dialog missing ' + text)
+    }
+    await page.locator('.update-dialog .um-close').click()
+
+    const downloaded = await page.evaluate(() => window.shellDeck.updater.download())
+    if (downloaded.status !== 'ready') throw new Error('update download failed: ' + JSON.stringify(downloaded))
+    if (!fs.existsSync(downloaded.asset.localPath)) throw new Error('downloaded update file missing')
+    await page.waitForFunction(() => document.querySelector('.ssh-version-badge')?.textContent.includes('待安装'), null, { timeout: 5000 })
+
+    const installError = await page.evaluate(async () => {
+      try { await window.shellDeck.updater.install(); return '' } catch (error) { return error.message }
+    })
+    if (!/开发模式/.test(installError)) throw new Error('install guard missing: ' + installError)
+    log('signed update check/download and dialog ok')
 
     const tampered = { ...manifest, notes: 'tampered after signing' }
     fs.writeFileSync(manifestPath, JSON.stringify(tampered, null, 2))

@@ -1,10 +1,15 @@
 param(
-  [Parameter(Mandatory = $true)][string]$AppExe,
-  [Parameter(Mandatory = $true)][string]$NewExe,
-  [Parameter(Mandatory = $true)][string]$Backup,
-  [Parameter(Mandatory = $true)][int]$TargetPid,
+  [ValidateSet('asar', 'exe')][string]$Mode = 'exe',
+  [string]$AppExe,
+  [string]$NewExe,
+  [string]$Backup,
+  [string]$Launcher,
+  [string]$TargetFile,
+  [string]$NewFile,
+  [string]$BackupFile,
+  [int]$TargetPid = 0,
   [int]$ParentPid = 0,
-  [Parameter(Mandatory = $true)][string]$LogPath
+  [string]$LogPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,12 +19,53 @@ function Write-Log([string]$Message) {
   try { Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8 } catch { }
 }
 
-Write-Log "helper start pid=$TargetPid app=$AppExe new=$NewExe"
+function Replace-File([string]$Source, [string]$Target) {
+  try {
+    Copy-Item -LiteralPath $Source -Destination $Target -Force
+    return
+  } catch {
+    Write-Log ("direct copy failed, in-place fallback: " + $_.Exception.Message)
+  }
+  $sourceStream = [System.IO.File]::Open($Source, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+  $targetStream = [System.IO.File]::Open($Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::ReadWrite)
+  try {
+    $targetStream.SetLength(0)
+    $sourceStream.CopyTo($targetStream)
+    $targetStream.Flush()
+  } finally {
+    $targetStream.Close()
+    $sourceStream.Close()
+  }
+}
+
+if ($Mode -eq 'asar') {
+  $target = $TargetFile
+  $incoming = $NewFile
+  $backupPath = $BackupFile
+  $startExe = $Launcher
+} else {
+  $target = $AppExe
+  $incoming = $NewExe
+  $backupPath = $Backup
+  $startExe = $AppExe
+}
+
+Write-Log "helper start mode=$Mode pid=$TargetPid target=$target new=$incoming"
 
 try {
+  foreach ($required in @($target, $incoming, $backupPath, $startExe)) {
+    if ([string]::IsNullOrWhiteSpace($required)) { throw "missing required argument" }
+  }
+  if (-not (Test-Path -LiteralPath $incoming)) { throw "new file missing: $incoming" }
+  if (-not (Test-Path -LiteralPath $target)) { throw "target file missing: $target" }
+  $logDir = [System.IO.Path]::GetDirectoryName($LogPath)
+  if ($logDir -and -not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+
   $deadline = (Get-Date).AddSeconds(60)
-  while ((Get-Process -Id $TargetPid -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
-    Start-Sleep -Milliseconds 400
+  if ($TargetPid -gt 0) {
+    while ((Get-Process -Id $TargetPid -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+      Start-Sleep -Milliseconds 400
+    }
   }
   if ($ParentPid -gt 0) {
     $parentDeadline = (Get-Date).AddSeconds(20)
@@ -29,25 +75,22 @@ try {
   }
   Start-Sleep -Milliseconds 1000
 
-  if (-not (Test-Path -LiteralPath $NewExe)) { throw "new executable missing: $NewExe" }
-  if (-not (Test-Path -LiteralPath $AppExe)) { throw "current executable missing: $AppExe" }
+  Copy-Item -LiteralPath $target -Destination $backupPath -Force
+  Write-Log "backup created: $backupPath"
 
-  Copy-Item -LiteralPath $AppExe -Destination $Backup -Force
-  Write-Log "backup created: $Backup"
+  Replace-File $incoming $target
+  Write-Log "replaced $target"
 
-  Copy-Item -LiteralPath $NewExe -Destination $AppExe -Force
-  Write-Log "replaced executable"
-
-  $workDir = [System.IO.Path]::GetDirectoryName($AppExe)
-  Start-Process -FilePath $AppExe -WorkingDirectory $workDir
-  Write-Log "new version started"
+  $workDir = [System.IO.Path]::GetDirectoryName($startExe)
+  Start-Process -FilePath $startExe -WorkingDirectory $workDir
+  Write-Log "new version started: $startExe"
 } catch {
   Write-Log ("ERROR: " + $_.Exception.Message)
-  if ((Test-Path -LiteralPath $Backup) -and (Test-Path -LiteralPath $AppExe)) {
+  if ((Test-Path -LiteralPath $backupPath) -and (Test-Path -LiteralPath $target)) {
     try {
-      Copy-Item -LiteralPath $Backup -Destination $AppExe -Force
-      $workDir = [System.IO.Path]::GetDirectoryName($AppExe)
-      Start-Process -FilePath $AppExe -WorkingDirectory $workDir
+      Replace-File $backupPath $target
+      $workDir = [System.IO.Path]::GetDirectoryName($startExe)
+      Start-Process -FilePath $startExe -WorkingDirectory $workDir
       Write-Log "rolled back and restarted"
     } catch {
       Write-Log ("ROLLBACK FAILED: " + $_.Exception.Message)

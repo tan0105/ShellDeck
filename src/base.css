@@ -250,6 +250,17 @@
 .ssh-cmdrun:disabled{opacity:.5;cursor:default}
 .ssh-cmdmanage{border:1px solid #e4e8ef;background:#fff;color:#56637a;border-radius:6px;height:30px;padding:0 10px;font-size:12px;cursor:pointer;font-family:inherit}
 .ssh-cmdmanage:hover{border-color:#8299ee;color:#315ee9}
+.ssh-cmdcombo{position:relative;flex:1;min-width:0;display:flex}
+.ssh-cmdsearch{width:100%;height:27px;border:1px solid #2a3748;border-radius:6px;padding:0 8px;font-size:11px;color:#dbe5f2;background:#17202d;outline:none;font-family:inherit}
+.ssh-cmdsearch::placeholder{color:#7f8fa3}
+.ssh-cmdsearch:focus{border-color:#4a88c7;box-shadow:0 0 0 3px #4a88c726}
+.ssh-cmdpop{position:fixed;z-index:120;overflow:auto;padding:4px;background:#141b26;border:1px solid #2a3748;border-radius:7px;box-shadow:0 14px 40px #0000008c}
+.ssh-cmdoption{display:flex;align-items:center;gap:7px;width:100%;border:0;border-radius:5px;padding:6px 7px;background:transparent;color:#e7edf5;font-size:11.5px;text-align:left;cursor:pointer;font-family:inherit}
+.ssh-cmdoption:hover,.ssh-cmdoption.active{background:#223247}
+.ssh-cmdkind{flex:none;font-size:8.5px;color:#9fc8ff;background:#1c2c44;border-radius:3px;padding:1px 4px}
+.ssh-cmdoption.script .ssh-cmdkind{color:#e2b872;background:#3a2f1c}
+.ssh-cmdname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssh-cmdempty{margin:0;padding:9px 8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#8fa0b5}
 .ssh-commands-dialog{width:min(680px,calc(100vw - 24px));max-height:88vh;display:flex;flex-direction:column}
 .ssh-cmdrows{overflow:auto;max-height:48vh;border:1px solid #eef1f5;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:9px}
 .ssh-cmdrow{display:flex;flex-direction:column;gap:7px;padding-bottom:9px;border-bottom:1px solid #f2f4f7}
@@ -408,7 +419,7 @@
   .ssh-termbar button{height:28px;padding:0 8px}
   .ssh-termhint{width:100%;margin-left:0}
   .ssh-cmdbar{flex-wrap:wrap}
-  .ssh-cmdselect{flex-basis:100%}
+  .ssh-cmdselect,.ssh-cmdcombo{flex-basis:100%}
   .ssh-route button{padding:0 8px;font-size:10.5px}
   .ssh-bridgebar{padding:11px 12px}
   .mobile-brand{display:none}

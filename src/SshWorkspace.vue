@@ -8,8 +8,9 @@ const props = defineProps({
   commands: { type: Array, default: () => [] },
   version: { type: String, default: '' },
   theme: { type: String, default: 'light' },
+  updateState: { type: Object, default: () => ({ status: 'idle' }) },
 })
-const emit = defineEmits(['notice', 'edit-server', 'new-server', 'delete-server', 'open-commands', 'open-settings', 'import-excel', 'export-excel', 'toggle-theme'])
+const emit = defineEmits(['notice', 'edit-server', 'new-server', 'delete-server', 'open-commands', 'open-settings', 'import-excel', 'export-excel', 'toggle-theme', 'open-update'])
 
 const query = ref('')
 const tagFilter = ref('')
@@ -22,6 +23,7 @@ const layout = ref(4)
 const maxedId = ref('')
 const draggingId = ref('')
 const confirmSession = ref(null)
+const bothOpenTarget = ref(null)
 const sessionsOpen = ref(false)
 const deleteTarget = ref(null)
 const newSessionTarget = ref(null)
@@ -180,6 +182,14 @@ function changeLayout(event) { setLayout(event.target.value) }
 function changeScale(event) { manualScale.value = event.target.value === 'auto' ? null : Number(event.target.value) }
 function setPage(index) {
   currentPage.value = Math.max(0, Math.min(index, pageCount.value - 1))
+}
+function handleServerDblClick(server) {
+  if (!server) return
+  selectedId.value = server.id
+  const kinds = new Set(sessions.value.filter(session => session.serverId === server.id).map(session => session.kind))
+  if (!kinds.has('terminal')) { openNow('terminal', server); return }
+  if (!kinds.has('file')) { openNow('file', server); return }
+  bothOpenTarget.value = server
 }
 function requestOpen(kind, server = selectedServer.value) {
   if (!server) { showNotice('请先选择左侧服务器'); return }
@@ -367,7 +377,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
       </div>
       <button type="button" class="ssh-newserver ssh-newserver-top" @click="newServer">＋ 新建服务器</button>
       <div class="ssh-serverlist">
-        <div v-for="server in filteredServers" :key="server.id" class="ssh-serverrow" :class="{ selected: server.id === selectedId }" role="button" tabindex="0" title="单击选择，双击编辑，右键打开会话" @click="selectServer(server)" @dblclick="emit('edit-server', server)" @contextmenu.prevent="openServerMenu(server, $event)" @keydown.enter="selectServer(server)">
+        <div v-for="server in filteredServers" :key="server.id" class="ssh-serverrow" :class="{ selected: server.id === selectedId }" role="button" tabindex="0" title="单击选择，双击依次打开终端和文件，右键打开会话" @click="selectServer(server)" @dblclick="handleServerDblClick(server)" @contextmenu.prevent="openServerMenu(server, $event)" @keydown.enter="selectServer(server)">
           <span class="ssh-serverdot" :class="{ active: hasSession(server) }"></span>
           <span class="ssh-servermain">
             <span class="ssh-serverhost" :title="server.host">{{ server.host }}</span>
@@ -377,7 +387,13 @@ function hasSession(server) { return sessions.value.some(session => session.serv
         </div>
         <p v-if="!filteredServers.length" class="ssh-railempty">没有匹配的服务器</p>
       </div>
-      <div class="ssh-version">v{{ version || '0.1.0' }}</div>
+      <button type="button" class="ssh-version" :class="{ available: updateState.status === 'available' }" :title="updateState.status === 'available' ? `发现新版本 ${updateState.version}` : '查看更新'" @click="emit('open-update')">
+        <span>v{{ version || '0.1.0' }}</span>
+        <span v-if="updateState.status === 'available'" class="ssh-version-badge">新版本</span>
+        <span v-else-if="updateState.status === 'downloading'" class="ssh-version-badge downloading">{{ updateState.progress || 0 }}%</span>
+        <span v-else-if="updateState.status === 'ready'" class="ssh-version-badge ready">待安装</span>
+        <span v-else-if="updateState.status === 'installing'" class="ssh-version-badge ready">安装中</span>
+      </button>
     </aside>
 
     <main class="ssh-ws-main">
@@ -453,6 +469,15 @@ function hasSession(server) { return sessions.value.some(session => session.serv
       </section>
     </div>
 
+    <div v-if="bothOpenTarget" class="um-overlay">
+      <section class="um-dialog ssh-confirm-dialog" role="dialog" aria-modal="true">
+        <button class="um-close" type="button" aria-label="关闭" @click="bothOpenTarget = null">×</button>
+        <h2>会话已打开</h2>
+        <p>{{ bothOpenTarget.name }} 的终端和文件会话都已打开。需要更多会话时，右键服务器选择“打开终端”或“打开文件”。</p>
+        <div class="um-dialog-actions"><button type="button" class="um-primary" @click="bothOpenTarget = null">知道了</button></div>
+      </section>
+    </div>
+
     <div v-if="newSessionTarget" class="um-overlay">
       <section class="um-dialog ssh-session-picker" role="dialog" aria-modal="true" aria-label="新建会话">
         <button class="um-close" type="button" aria-label="关闭" @click="newSessionTarget = null">×</button>
@@ -510,11 +535,12 @@ function hasSession(server) { return sessions.value.some(session => session.serv
         <h2>所有会话</h2>
         <p class="ssh-filedir">点击任意会话跳转到对应页面。</p>
         <div class="ssh-sessions-list">
-          <div v-for="pageIndex in pageCount" :key="pageIndex" class="ssh-session-page">
-            <div class="ssh-session-pagehead">第 {{ pageIndex }} 页 · {{ sessions.slice((pageIndex - 1) * capacity, pageIndex * capacity).length }} 个会话</div>
-            <button v-for="row in allSessions.filter(item => item.page === pageIndex - 1)" :key="row.session.id" type="button" class="ssh-session-row" :class="{ file: row.session.kind === 'file' }" @click="jumpToSession(row)"><span class="ssh-session-icon">{{ row.session.kind === 'file' ? 'F' : '>_' }}</span><span class="ssh-session-name">{{ sessionTitle(row.session) }}</span></button>
-            <p v-if="!sessions.slice((pageIndex - 1) * capacity, pageIndex * capacity).length" class="ssh-railempty">暂无会话</p>
-          </div>
+          <button v-for="row in allSessions" :key="row.session.id" type="button" class="ssh-session-row" :class="{ file: row.session.kind === 'file' }" @click="jumpToSession(row)">
+            <span class="ssh-session-icon">{{ row.session.kind === 'file' ? 'F' : '>_' }}</span>
+            <span class="ssh-session-name">{{ sessionTitle(row.session) }}</span>
+            <span class="ssh-session-route">第 {{ row.page + 1 }} 页</span>
+          </button>
+          <p v-if="!allSessions.length" class="ssh-railempty">暂无会话</p>
         </div>
         <div class="um-dialog-actions"><button type="button" @click="sessionsOpen = false">关闭</button></div>
       </section>

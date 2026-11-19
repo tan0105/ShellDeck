@@ -3,6 +3,7 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const { app, net } = require('electron')
 const db = require('./db.cjs')
+const updateConfig = require('../shared/update-config.json')
 
 const APP_ID = 'com.shelldeck.desktop'
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -126,7 +127,52 @@ function validateManifest(manifest) {
   if (!asset || typeof asset !== 'object') throw new Error('更新清单缺少 Windows x64 资产')
   if (!/^[a-f0-9]{64}$/i.test(String(asset.sha256 || ''))) throw new Error('更新清单缺少有效的 SHA-256')
   if (!Number.isFinite(Number(asset.size)) || Number(asset.size) <= 0) throw new Error('更新清单资产大小不正确')
-  return asset
+  const format = manifest.format === 'full' ? 'full' : 'asar'
+  return { asset, format, electronVersion: String(manifest.electronVersion || '') }
+}
+
+function githubBaseUrl() {
+  return `https://github.com/${updateConfig.githubRepo}/releases/latest/download`
+}
+
+function normalizePrefix(value) {
+  const prefix = String(value || '').trim()
+  if (!/^https:\/\//i.test(prefix)) return ''
+  return prefix.endsWith('/') ? prefix : prefix + '/'
+}
+
+function githubSources() {
+  const mode = String(db.getSetting('update.accelerator') || 'auto')
+  const custom = normalizePrefix(db.getSetting('update.acceleratorCustom'))
+  const direct = { id: 'github-direct', name: 'GitHub 直连', prefix: '' }
+  const builtin = updateConfig.accelerators.map(item => ({ id: item.id, name: item.name, prefix: item.prefix }))
+  let candidates
+  if (mode === 'direct') candidates = [direct]
+  else if (mode === 'custom') candidates = custom ? [{ id: 'github-custom', name: '自定义加速', prefix: custom }] : [direct, ...builtin]
+  else if (mode === 'auto') candidates = [direct, ...builtin]
+  else {
+    const chosen = builtin.find(item => item.id === mode)
+    candidates = chosen ? [chosen] : [direct, ...builtin]
+  }
+  const base = githubBaseUrl()
+  return candidates.map(item => ({
+    id: 'github:' + item.id,
+    name: item.name,
+    type: 'github',
+    baseUrl: item.prefix ? item.prefix + base : base,
+    proxyPrefix: item.prefix,
+    enabled: true,
+    priority: item.prefix ? 10 : -1,
+  }))
+}
+
+function getSources() {
+  const custom = db.listSources().filter(source => source.enabled && source.type !== 'github')
+  return custom.length ? custom : githubSources()
+}
+
+function hasSources() {
+  return true
 }
 
 function backoffSetting(id) {
@@ -153,9 +199,9 @@ function inBackoff(source) {
 
 async function check({ manual = false } = {}) {
   if (running) return snapshot()
-  const sources = db.listSources().filter(source => source.enabled)
+  const sources = getSources()
   if (!sources.length) {
-    if (manual) throw new Error('还没有配置更新源')
+    if (manual) throw new Error('还没有配置更新仓库')
     return snapshot()
   }
   running = true
@@ -168,8 +214,11 @@ async function check({ manual = false } = {}) {
       try {
         const { manifest, manifestUrl } = await readSource(source)
         clearBackoff(source.id)
-        const asset = validateManifest(manifest)
+        const { asset, format, electronVersion } = validateManifest(manifest)
         const current = app.getVersion()
+        if (format === 'asar' && electronVersion && electronVersion !== process.versions.electron) {
+          throw new Error(`此更新需要更新 Electron（${electronVersion}），请使用整包更新`)
+        }
         if (manifest.minSupportedVersion && compareVersions(current, manifest.minSupportedVersion) < 0) {
           throw new Error(`当前版本过低，请手动下载 ${manifest.version} 完整安装包`)
         }
@@ -177,10 +226,11 @@ async function check({ manual = false } = {}) {
           upToDate = { version: manifest.version, source: source.name }
           continue
         }
-        const url = source.type === 'local'
+        let url = source.type === 'local'
           ? path.resolve(path.dirname(manifestUrl), asset.url)
-          : asset.url
-        if (source.type !== 'local' && !/^https:\/\//i.test(String(url))) throw new Error('资产地址必须使用 HTTPS')
+          : String(asset.url)
+        if (source.proxyPrefix && /^https:\/\/github\.com\//i.test(url)) url = source.proxyPrefix + url
+        if (source.type !== 'local' && !/^https:\/\//i.test(url)) throw new Error('资产地址必须使用 HTTPS')
         db.setSetting('update.lastCheck', new Date().toISOString())
         setState({
           status: 'available',
@@ -194,6 +244,8 @@ async function check({ manual = false } = {}) {
             url,
             size: Number(asset.size),
             sha256: String(asset.sha256).toLowerCase(),
+            format,
+            electronVersion,
             sourceId: source.id,
             sourceType: source.type,
           },
@@ -239,7 +291,7 @@ function download() {
   return new Promise(resolve => {
     const targetDir = path.join(paths.updatesDir, version)
     fs.mkdirSync(targetDir, { recursive: true })
-    const finalPath = path.join(targetDir, 'ShellDeck.exe')
+    const finalPath = path.join(targetDir, asset.format === 'full' ? 'runtime.zip' : 'payload.bin')
     const partPath = finalPath + '.part'
     const fail = error => {
       running = false
@@ -313,27 +365,29 @@ function download() {
 function install() {
   if (state.status !== 'ready' || !state.asset || !state.asset.localPath) throw new Error('没有已下载的安装包')
   if (!app.isPackaged) throw new Error('开发模式下不执行替换安装')
-  const rootDir = path.dirname(paths.dataDir)
+  if (state.asset.format === 'full') throw new Error('整包更新暂不支持应用内安装，请手动替换 runtime')
+  const runtimeDir = path.dirname(process.resourcesPath)
+  const rootDir = path.dirname(runtimeDir)
   const launcher = path.join(rootDir, 'ShellDeck.exe')
-  if (!process.env.PORTABLE_EXECUTABLE_FILE && fs.existsSync(launcher) && fs.existsSync(path.join(rootDir, 'runtime'))) {
-    throw new Error('当前是文件夹版：请退出程序后，用新版本的 runtime 目录覆盖旧目录，data 目录保持不变')
+  const targetAsar = path.join(process.resourcesPath, 'app.asar')
+  if (!fs.existsSync(launcher) || !fs.existsSync(targetAsar)) {
+    throw new Error('未找到文件夹版入口或 app.asar，无法自动安装')
   }
-  const appExe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath
-  if (!fs.existsSync(appExe)) throw new Error('找不到当前程序文件')
   const helper = app.isPackaged
     ? path.join(process.resourcesPath, 'update-helper.ps1')
     : path.join(__dirname, 'update-helper.ps1')
-  const backup = path.join(path.dirname(appExe), 'ShellDeck.previous.exe')
+  const backup = targetAsar + '.previous'
   const logPath = path.join(paths.updatesDir, 'update.log')
   const { spawn } = require('node:child_process')
-  const portable = Boolean(process.env.PORTABLE_EXECUTABLE_FILE)
   const child = spawn('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper,
-    '-AppExe', appExe,
-    '-NewExe', state.asset.localPath,
-    '-Backup', backup,
+    '-Mode', 'asar',
+    '-Launcher', launcher,
+    '-TargetFile', targetAsar,
+    '-NewFile', state.asset.localPath,
+    '-BackupFile', backup,
     '-TargetPid', String(process.pid),
-    '-ParentPid', String(portable ? process.ppid : 0),
+    '-ParentPid', '0',
     '-LogPath', logPath,
   ], { detached: true, stdio: 'ignore', windowsHide: true })
   child.unref()
@@ -355,4 +409,4 @@ function removeSource(id) {
   return db.deleteSource(id)
 }
 
-module.exports = { init, snapshot, check, download, install, listSources, addSource, removeSource }
+module.exports = { init, snapshot, check, download, install, listSources, addSource, removeSource, hasSources }
