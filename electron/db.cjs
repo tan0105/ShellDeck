@@ -3,8 +3,6 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const Database = require('better-sqlite3')
 
-const MAX_SERVERS = 50
-
 let db = null
 let paths = null
 
@@ -182,8 +180,6 @@ function saveServer(input) {
     database.prepare(`UPDATE servers SET name=?, host=?, port=?, username=?, password=?, auth_type=?, private_key=?, passphrase=?, note=?, tags_json=?, strict_host_key=?, updated_at=? WHERE id=?`)
       .run(data.name, data.host, data.port, data.username, data.password, data.authType, data.privateKey, data.passphrase, data.note, JSON.stringify(data.tags), data.strictHostKey, stamp, id)
   } else {
-    const count = database.prepare('SELECT COUNT(*) AS count FROM servers').get().count
-    if (count >= MAX_SERVERS) throw new Error(`最多保存 ${MAX_SERVERS} 台服务器`)
     id = crypto.randomUUID()
     database.prepare(`INSERT INTO servers (id, name, host, port, username, password, auth_type, private_key, passphrase, note, tags_json, strict_host_key, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(id, data.name, data.host, data.port, data.username, data.password, data.authType, data.privateKey, data.passphrase, data.note, JSON.stringify(data.tags), data.strictHostKey, stamp, stamp)
