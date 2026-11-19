@@ -14,6 +14,23 @@ files:
   - electron/**
   - shared/**
   - package.json
+  - "!node_modules/**/build/**"
+  - "!node_modules/**/*.ilk"
+  - "!node_modules/**/*.lib"
+  - "!node_modules/**/*.exp"
+  - "!node_modules/**/*.pdb"
+  - "!node_modules/**/*.tlog"
+  - "!node_modules/**/*.vcxproj"
+  - "!node_modules/**/*.vcxproj.filters"
+  - "!node_modules/**/*.recipe"
+  - "!node_modules/**/*.lastbuildstate"
+  - "!node_modules/cpu-features/**"
+  - "!node_modules/buildcheck/**"
+  - "!node_modules/nan/**"
+  - "!node_modules/better-sqlite3/deps/**"
+  - "!node_modules/better-sqlite3/prebuilds/darwin-*"
+  - "!node_modules/better-sqlite3/prebuilds/linux*"
+  - "!node_modules/better-sqlite3/prebuilds/win32-arm64.node"
 extraResources:
   - from: resources
     to: resources

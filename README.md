@@ -79,7 +79,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 应用内更新走 GitHub Releases：
 
 - 仓库内置在 `shared/update-config.json`，设置里不暴露地址
-- 「设置 → 更新」只选择网络方式：自动、直连、内置加速或自定义加速前缀；自动模式先直连，失败后依次尝试内置加速
+- 「设置 → 更新」二选一：GitHub 加速，或自定义 HTTP/SOCKS 代理
+- 自动加速模式会对直连和内置加速源做连接延迟与下载速度测试，自动选择最快源；代理模式所有更新请求走指定代理
 - 每次 Release 上传 `app.asar`、`release.json`、`release.json.sig`
 - 普通更新只下载并替换 `runtime/resources/app.asar`，数据目录不动
 - Electron、原生模块或入口启动器变化时，用 `--format full` 生成整包清单；整包目前需手动替换 `runtime`
@@ -115,6 +116,7 @@ GitHub Actions 会校验 tag 与 `package.json` 版本一致，构建文件夹�
 - root 模式尚未在真实 Linux + sudo 环境完整验收；root 列目录依赖 GNU `find -printf`
 - app.asar 更新要求 Electron 版本一致；整包自动替换和二进制差分暂未实现
 - GitHub 更新假定仓库公开、无需认证；私有仓库需要额外加 token 支持
+- 自定义更新代理支持 http/https/socks4/socks5，暂不支持代理账号密码
 - 密码、私钥、口令均为本机明文存储
 - 入口和程序未签名，首次运行可能触发 SmartScreen 或杀软提示
 - 上传同名冲突（含嵌套目录）合并为一次确认；文件夹请用“上传文件夹”

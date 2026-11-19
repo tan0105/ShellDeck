@@ -78,7 +78,7 @@ async function main() {
     await page.locator('.ssh-topactions button', { hasText: '设置' }).click()
     await page.waitForSelector('.settings-dialog')
     const settingsText = await page.locator('.settings-dialog').textContent()
-    if (!settingsText.includes('直连失败后尝试加速')) throw new Error('accelerator settings missing')
+    if (!settingsText.includes('测速后选择最快')) throw new Error('accelerator settings missing')
     const accelOptions = await page.locator('.settings-dialog select option').allTextContents()
     if (!accelOptions.some(text => text.includes('ghproxy.net'))) throw new Error('built-in accelerators missing')
     if (settingsText.includes('owner/repo')) throw new Error('GitHub repo should be built in')

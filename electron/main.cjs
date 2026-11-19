@@ -188,7 +188,7 @@ function registerIpc() {
       if (String(value) === '0') clearTimeout(autoCheckTimer)
       else scheduleAutoUpdate(true)
     }
-    if (key === 'update.accelerator' || key === 'update.acceleratorCustom') scheduleAutoUpdate(true)
+    if (['update.accelerator', 'update.acceleratorCustom', 'update.networkMode', 'update.proxy'].includes(key)) scheduleAutoUpdate(true)
     return true
   })
 

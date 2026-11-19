@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { app, net } = require('electron')
+const { app, net, session } = require('electron')
 const db = require('./db.cjs')
 const updateConfig = require('../shared/update-config.json')
 
@@ -19,6 +19,7 @@ let state = {
   progress: 0,
   error: '',
   source: '',
+  speed: 0,
   checkedAt: '',
   asset: null,
 }
@@ -51,9 +52,10 @@ function compareVersions(left, right) {
   return 0
 }
 
-function httpGet(url, maxBytes = 8 * 1024 * 1024) {
+async function httpGet(url, maxBytes = 8 * 1024 * 1024, timeoutMs = 20000) {
+  if (!/^https:\/\//i.test(url)) throw new Error('更新源必须使用 HTTPS')
+  const netSession = await getUpdateSession()
   return new Promise((resolve, reject) => {
-    if (!/^https:\/\//i.test(url)) { reject(new Error('更新源必须使用 HTTPS')); return }
     let settled = false
     const done = (error, value) => {
       if (settled) return
@@ -61,11 +63,13 @@ function httpGet(url, maxBytes = 8 * 1024 * 1024) {
       if (error) reject(error)
       else resolve(value)
     }
-    const request = net.request({ url, method: 'GET', redirect: 'follow' })
+    const options = { url, method: 'GET', redirect: 'follow' }
+    if (netSession) options.session = netSession
+    const request = net.request(options)
     const timer = setTimeout(() => {
       try { request.abort() } catch { /* already done */ }
       done(Object.assign(new Error('请求超时'), { transient: true }))
-    }, 20000)
+    }, timeoutMs)
     request.on('response', response => {
       const chunks = []
       let total = 0
@@ -98,7 +102,43 @@ function sourceManifestUrl(source) {
   return base + '/release.json'
 }
 
-async function readSource(source) {
+function networkMode() {
+  return String(db.getSetting('update.networkMode') || 'accelerator')
+}
+
+function normalizeProxy(value) {
+  let text = String(value || '').trim()
+  if (!text) return null
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = 'http://' + text
+  let parsed
+  try { parsed = new URL(text) } catch { return null }
+  const scheme = parsed.protocol.replace(':', '').toLowerCase()
+  if (!['http', 'https', 'socks4', 'socks5'].includes(scheme)) return null
+  if (!parsed.hostname || !parsed.port) return null
+  if (parsed.username || parsed.password) return null
+  const defaultPort = scheme === 'http' ? '80' : scheme === 'https' ? '443' : '1080'
+  return { authority: `${parsed.hostname}:${parsed.port || defaultPort}`, scheme }
+}
+
+let updateSession = null
+let updateProxyRules = ''
+
+async function getUpdateSession() {
+  if (networkMode() !== 'proxy') return null
+  const proxy = normalizeProxy(db.getSetting('update.proxy'))
+  if (!proxy) throw new Error('请填写有效的自定义代理，例如 http://127.0.0.1:7890')
+  const rules = proxy.scheme === 'http' || proxy.scheme === 'https'
+    ? `http=${proxy.authority};https=${proxy.authority}`
+    : `${proxy.scheme}=${proxy.authority}`
+  if (!updateSession) updateSession = session.fromPartition('shelldeck-update-proxy')
+  if (updateProxyRules !== rules) {
+    await updateSession.setProxy({ proxyRules: rules })
+    updateProxyRules = rules
+  }
+  return updateSession
+}
+
+async function readSource(source, timeoutMs = 20000) {
   const manifestUrl = sourceManifestUrl(source)
   let raw
   let signatureText
@@ -106,8 +146,8 @@ async function readSource(source) {
     raw = fs.readFileSync(manifestUrl)
     signatureText = fs.readFileSync(manifestUrl + '.sig', 'utf8')
   } else {
-    raw = await httpGet(manifestUrl)
-    signatureText = (await httpGet(manifestUrl + '.sig', 64 * 1024)).toString('utf8')
+    raw = await httpGet(manifestUrl, 8 * 1024 * 1024, timeoutMs)
+    signatureText = (await httpGet(manifestUrl + '.sig', 64 * 1024, timeoutMs)).toString('utf8')
   }
   const signature = Buffer.from(String(signatureText).replace(/\s+/g, ''), 'base64')
   if (!signature.length) throw new Error('更新清单缺少签名')
@@ -167,12 +207,87 @@ function githubSources() {
 }
 
 function getSources() {
+  if (networkMode() === 'proxy') {
+    return [{ id: 'github:proxy', name: 'GitHub 代理', type: 'github', baseUrl: githubBaseUrl(), proxyPrefix: '', enabled: true, priority: 0 }]
+  }
   const custom = db.listSources().filter(source => source.enabled && source.type !== 'github')
   return custom.length ? custom : githubSources()
 }
 
 function hasSources() {
   return true
+}
+
+async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) {
+  if (!/^https:\/\//i.test(url)) return { ok: false, bytes: 0, ms: 0, ttfb: 0, bps: 0, error: 'HTTPS required' }
+  let netSession
+  try { netSession = await getUpdateSession() } catch (error) { return { ok: false, bytes: 0, ms: 0, ttfb: 0, bps: 0, error: error.message } }
+  return new Promise(resolve => {
+    const started = Date.now()
+    let received = 0
+    let firstByte = 0
+    let settled = false
+    let request = null
+    let timer = 0
+    const finish = error => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      try { if (request) request.abort() } catch { /* already done */ }
+      const ms = Math.max(1, Date.now() - started)
+      resolve({
+        ok: !error && received > 0,
+        bytes: received,
+        ms,
+        ttfb: firstByte ? firstByte - started : ms,
+        bps: received ? Math.round(received * 1000 / ms) : 0,
+        error: error ? error.message : '',
+      })
+    }
+    const options = { url, method: 'GET', redirect: 'follow' }
+    if (netSession) options.session = netSession
+    request = net.request(options)
+    try { request.setHeader('Range', `bytes=0-${maxBytes - 1}`) } catch { /* ignore */ }
+    timer = setTimeout(() => finish(new Error('测速超时')), timeoutMs)
+    request.on('response', response => {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        finish(new Error(`HTTP ${response.statusCode}`))
+        return
+      }
+      response.on('data', chunk => {
+        if (!firstByte) firstByte = Date.now()
+        received += chunk.length
+        if (received >= maxBytes) finish()
+      })
+      response.on('end', () => finish())
+      response.on('error', error => finish(error))
+    })
+    request.on('error', error => finish(error))
+    request.end()
+  })
+}
+
+async function selectFastestSource(available, sources) {
+  if (available.source.type === 'local') return { ...available, speed: 0 }
+  const rawUrl = String(available.asset.url)
+  const candidates = sources
+    .filter(source => !inBackoff(source))
+    .map(source => {
+      if (source.type === 'local') return null
+      let url = rawUrl
+      if (source.proxyPrefix && /^https:\/\/github\.com\//i.test(url)) url = source.proxyPrefix + url
+      if (!/^https:\/\//i.test(url)) return null
+      return { source, url }
+    })
+    .filter(Boolean)
+  if (!candidates.length) return { ...available, speed: 0 }
+  if (candidates.length === 1) return { ...available, source: candidates[0].source, url: candidates[0].url, speed: 0 }
+  const probed = await Promise.all(candidates.map(async item => ({ ...item, probe: await probeDownloadSpeed(item.url) })))
+  const usable = probed.filter(item => item.probe.ok)
+  const pool = usable.length ? usable : probed
+  pool.sort((a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms))
+  const chosen = pool[0]
+  return { ...available, source: chosen.source, url: chosen.url, speed: chosen.probe.bps || 0 }
 }
 
 function backoffSetting(id) {
@@ -205,17 +320,18 @@ async function check({ manual = false } = {}) {
     return snapshot()
   }
   running = true
-  setState({ status: 'checking', error: '', progress: 0, asset: null })
+  setState({ status: 'checking', error: '', progress: 0, asset: null, speed: 0 })
   const failures = []
   let upToDate = null
+  let available = null
   try {
+    const current = app.getVersion()
     for (const source of sources) {
       if (inBackoff(source)) continue
       try {
-        const { manifest, manifestUrl } = await readSource(source)
+        const { manifest, manifestUrl } = await readSource(source, 6000)
         clearBackoff(source.id)
         const { asset, format, electronVersion } = validateManifest(manifest)
-        const current = app.getVersion()
         if (format === 'asar' && electronVersion && electronVersion !== process.versions.electron) {
           throw new Error(`此更新需要更新 Electron（${electronVersion}），请使用整包更新`)
         }
@@ -223,7 +339,9 @@ async function check({ manual = false } = {}) {
           throw new Error(`当前版本过低，请手动下载 ${manifest.version} 完整安装包`)
         }
         if (compareVersions(manifest.version, current) <= 0) {
-          upToDate = { version: manifest.version, source: source.name }
+          if (!upToDate || compareVersions(manifest.version, upToDate.version) > 0) {
+            upToDate = { version: manifest.version, source: source.name }
+          }
           continue
         }
         let url = source.type === 'local'
@@ -231,37 +349,42 @@ async function check({ manual = false } = {}) {
           : String(asset.url)
         if (source.proxyPrefix && /^https:\/\/github\.com\//i.test(url)) url = source.proxyPrefix + url
         if (source.type !== 'local' && !/^https:\/\//i.test(url)) throw new Error('资产地址必须使用 HTTPS')
-        db.setSetting('update.lastCheck', new Date().toISOString())
-        setState({
-          status: 'available',
-          version: manifest.version,
-          notes: String(manifest.notes || ''),
-          source: source.name,
-          checkedAt: new Date().toISOString(),
-          progress: 0,
-          error: '',
-          asset: {
-            url,
-            size: Number(asset.size),
-            sha256: String(asset.sha256).toLowerCase(),
-            format,
-            electronVersion,
-            sourceId: source.id,
-            sourceType: source.type,
-          },
-        })
-        return snapshot()
+        available = { source, manifest, asset, format, electronVersion, url }
+        break
       } catch (error) {
         markBackoff(source, error)
         failures.push(`${source.name}：${error.message}`)
       }
     }
     db.setSetting('update.lastCheck', new Date().toISOString())
+    if (available) {
+      const selected = await selectFastestSource(available, sources)
+      return setState({
+        status: 'available',
+        version: selected.manifest.version,
+        notes: String(selected.manifest.notes || ''),
+        source: selected.source.name,
+        speed: selected.speed || 0,
+        checkedAt: new Date().toISOString(),
+        progress: 0,
+        error: '',
+        asset: {
+          url: selected.url,
+          size: Number(selected.asset.size),
+          sha256: String(selected.asset.sha256).toLowerCase(),
+          format: selected.format,
+          electronVersion: selected.electronVersion,
+          sourceId: selected.source.id,
+          sourceType: selected.source.type,
+        },
+      })
+    }
     if (upToDate) {
       return setState({
         status: 'up-to-date',
         version: upToDate.version,
         source: upToDate.source,
+        speed: 0,
         checkedAt: new Date().toISOString(),
         progress: 0,
         error: failures.join('\n'),
@@ -269,10 +392,9 @@ async function check({ manual = false } = {}) {
       })
     }
     if (failures.length) throw new Error(failures.join('\n'))
-    setState({ status: 'up-to-date', checkedAt: new Date().toISOString(), progress: 0, asset: null })
-    return snapshot()
+    return setState({ status: 'up-to-date', speed: 0, checkedAt: new Date().toISOString(), progress: 0, asset: null })
   } catch (error) {
-    setState({ status: 'error', error: error.message || '检查更新失败', progress: 0 })
+    setState({ status: 'error', speed: 0, error: error.message || '检查更新失败', progress: 0 })
     if (manual) throw error
     return snapshot()
   } finally {
@@ -280,13 +402,24 @@ async function check({ manual = false } = {}) {
   }
 }
 
-function download() {
+async function download() {
   if (running) return snapshot()
   if (!state.asset) throw new Error('请先检查更新')
   const asset = state.asset
   const version = state.version
   running = true
   setState({ status: 'downloading', progress: 0, error: '' })
+
+  let netSession = null
+  if (asset.sourceType !== 'local' && /^https:\/\//i.test(asset.url)) {
+    try {
+      netSession = await getUpdateSession()
+    } catch (error) {
+      running = false
+      setState({ status: 'error', error: '下载失败：' + error.message, progress: 0 })
+      return snapshot()
+    }
+  }
 
   return new Promise(resolve => {
     const targetDir = path.join(paths.updatesDir, version)
@@ -322,7 +455,9 @@ function download() {
     const hash = crypto.createHash('sha256')
     let received = 0
     const file = fs.createWriteStream(partPath)
-    const request = net.request({ url: asset.url, method: 'GET', redirect: 'follow' })
+    const options = { url: asset.url, method: 'GET', redirect: 'follow' }
+    if (netSession) options.session = netSession
+    const request = net.request(options)
     const timer = setTimeout(() => {
       try { request.abort() } catch { /* already done */ }
       file.destroy()

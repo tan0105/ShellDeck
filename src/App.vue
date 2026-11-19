@@ -35,6 +35,8 @@ const settingsOpen = ref(false)
 const dataBusy = ref(false)
 const info = ref({})
 const dataError = ref('')
+const networkMode = ref('accelerator')
+const proxy = ref('')
 const acceleratorMode = ref('auto')
 const acceleratorCustom = ref('')
 const autoCheck = ref(true)
@@ -66,9 +68,11 @@ onMounted(async () => {
     }),
   ]
   try {
-    const [appInfo, savedTheme, savedAccel, savedAccelCustom, savedAuto, initialState] = await Promise.all([
+    const [appInfo, savedTheme, savedNet, savedProxy, savedAccel, savedAccelCustom, savedAuto, initialState] = await Promise.all([
       window.shellDeck.app.info(),
       window.shellDeck.settings.get('ui.theme'),
+      window.shellDeck.settings.get('update.networkMode'),
+      window.shellDeck.settings.get('update.proxy'),
       window.shellDeck.settings.get('update.accelerator'),
       window.shellDeck.settings.get('update.acceleratorCustom'),
       window.shellDeck.settings.get('update.autoCheck'),
@@ -78,6 +82,8 @@ onMounted(async () => {
     ])
     info.value = appInfo
     appVersion.value = appInfo.version || ''
+    networkMode.value = savedNet || 'accelerator'
+    proxy.value = savedProxy || ''
     acceleratorMode.value = savedAccel || 'auto'
     acceleratorCustom.value = savedAccelCustom || ''
     autoCheck.value = savedAuto !== '0'
@@ -228,14 +234,18 @@ async function openSettings() {
   dataError.value = ''
   updateError.value = ''
   try {
-    const [appInfo, accel, accelCustom, auto, state] = await Promise.all([
+    const [appInfo, net, proxyValue, accel, accelCustom, auto, state] = await Promise.all([
       window.shellDeck.app.info(),
+      window.shellDeck.settings.get('update.networkMode'),
+      window.shellDeck.settings.get('update.proxy'),
       window.shellDeck.settings.get('update.accelerator'),
       window.shellDeck.settings.get('update.acceleratorCustom'),
       window.shellDeck.settings.get('update.autoCheck'),
       window.shellDeck.updater.state(),
     ])
     info.value = appInfo
+    networkMode.value = net || 'accelerator'
+    proxy.value = proxyValue || ''
     acceleratorMode.value = accel || 'auto'
     acceleratorCustom.value = accelCustom || ''
     autoCheck.value = auto !== '0'
@@ -244,19 +254,23 @@ async function openSettings() {
     showToast(error.message || '读取设置失败', 'error')
   }
 }
-async function saveAccelerator({ mode, custom }) {
+async function saveNetwork({ networkMode: mode, proxy: proxyValue, acceleratorMode: accel, acceleratorCustom: custom }) {
   updateBusy.value = true
   updateError.value = ''
   try {
     await Promise.all([
-      window.shellDeck.settings.set('update.accelerator', mode),
+      window.shellDeck.settings.set('update.networkMode', mode),
+      window.shellDeck.settings.set('update.proxy', proxyValue || ''),
+      window.shellDeck.settings.set('update.accelerator', accel),
       window.shellDeck.settings.set('update.acceleratorCustom', custom || ''),
     ])
-    acceleratorMode.value = mode
+    networkMode.value = mode
+    proxy.value = proxyValue || ''
+    acceleratorMode.value = accel
     acceleratorCustom.value = custom || ''
-    showToast('更新加速设置已保存')
+    showToast('更新网络设置已保存')
   } catch (error) {
-    updateError.value = error.message || '保存更新加速设置失败'
+    updateError.value = error.message || '保存更新网络设置失败'
   } finally {
     updateBusy.value = false
   }
@@ -365,6 +379,8 @@ async function restoreDatabase() {
       :info="info"
       :data-error="dataError"
       :data-busy="dataBusy"
+      :network-mode="networkMode"
+      :proxy="proxy"
       :accelerator-mode="acceleratorMode"
       :accelerator-custom="acceleratorCustom"
       :auto-check="autoCheck"
@@ -375,7 +391,7 @@ async function restoreDatabase() {
       @backup="backupDatabase"
       @restore="restoreDatabase"
       @open-data="openDataDir"
-      @save-accelerator="saveAccelerator"
+      @save-network="saveNetwork"
       @toggle-auto="toggleAutoCheck"
       @check="checkUpdate"
       @open-update="openUpdateDialog"

@@ -25,6 +25,11 @@ const statusText = computed(() => ({
 const format = computed(() => props.state.asset?.format === 'full' ? 'full' : 'asar')
 const showUpdate = computed(() => ['available', 'downloading', 'ready', 'installing'].includes(props.state.status))
 const showError = computed(() => props.error || props.state.error || '')
+const speedText = computed(() => {
+  const bps = Number(props.state.speed) || 0
+  if (!bps) return ''
+  return bps >= 1024 * 1024 ? (bps / 1024 / 1024).toFixed(1) + ' MB/s' : Math.max(1, Math.round(bps / 1024)) + ' KB/s'
+})
 const checking = computed(() => props.state.status === 'checking')
 const downloading = computed(() => props.state.status === 'downloading')
 const ready = computed(() => props.state.status === 'ready')
@@ -65,6 +70,7 @@ function updateNow() {
         <div class="update-status">
           <b>{{ statusText }}</b>
           <span v-if="state.source">· {{ state.source }}</span>
+          <span v-if="speedText" class="settings-muted">· {{ speedText }}</span>
           <span v-if="state.checkedAt" class="settings-muted">上次检查 {{ formatTime(state.checkedAt) }}</span>
         </div>
 
