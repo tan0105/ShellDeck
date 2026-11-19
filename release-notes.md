@@ -1,3 +1,4 @@
-- 修复直接启动 runtime 或固定任务栏后误用 runtime\data、看不到原服务器列表的问题
-- runtime 现在会自动复用顶层 data 目录，与顶层 ShellDeck.exe 使用同一份数据库
-- 更新说明改为中文
+- 更新 helper 改为 Node 实现，不再依赖 PowerShell
+- 点击更新后等待 helper 启动再退出，修复重启后没有反应的问题
+- 更新弹窗去掉多余框，更新内容直接按编号展示
+- 自动保留最近两个 Release 和对应标签
