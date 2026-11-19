@@ -18,6 +18,15 @@ jobs:
     environment: release
     timeout-minutes: 40
 
+    env:
+      npm_config_registry: https://registry.npmjs.org/
+      npm_config_disturl: https://nodejs.org/dist
+      npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
+      ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+      ELECTRON_CUSTOM_DIR: "v{{ version }}"
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+      npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +38,19 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+
+      - name: Normalize npm registry
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs');const p='package-lock.json';fs.writeFileSync(p,fs.readFileSync(p,'utf8').split('https://registry.npmmirror.com').join('https://registry.npmjs.org'))"
+          npm config get registry
+          npm config get disturl
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: electron-${{ runner.os }}-45.3.4
 
       - name: Install dependencies
         run: npm ci
