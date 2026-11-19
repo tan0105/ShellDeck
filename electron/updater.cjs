@@ -237,7 +237,7 @@ async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) 
       try { if (request) request.abort() } catch { /* already done */ }
       const ms = Math.max(1, Date.now() - started)
       resolve({
-        ok: !error && received > 0,
+        ok: !error && received >= maxBytes,
         bytes: received,
         ms,
         ttfb: firstByte ? firstByte - started : ms,
@@ -283,11 +283,20 @@ async function selectFastestSource(available, sources) {
     .filter(Boolean)
   if (!candidates.length) return { ...available, speed: 0 }
   if (candidates.length === 1) return { ...available, source: candidates[0].source, url: candidates[0].url, speed: 0 }
-  const probed = []
+  const firstPass = []
   for (const item of candidates) {
-    probed.push({ ...item, probe: await probeDownloadSpeed(item.url) })
+    firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 256 * 1024, 5000) })
   }
-  const benchmarks = probed.map(item => ({
+  const firstSort = (a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms)
+  const validFirst = firstPass.filter(item => item.probe.ok).sort(firstSort)
+  const finalists = (validFirst.length ? validFirst : firstPass).slice(0, 3)
+  const secondPass = []
+  for (const item of finalists) {
+    secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 2 * 1024 * 1024, 10000) })
+  }
+  const validSecond = secondPass.filter(item => item.probe.ok).sort(firstSort)
+  const pool = validSecond.length ? validSecond : (validFirst.length ? validFirst : firstPass)
+  const benchmarks = (validSecond.length ? validSecond : pool).map(item => ({
     name: item.source.name,
     ok: item.probe.ok,
     bps: item.probe.bps,
@@ -295,10 +304,7 @@ async function selectFastestSource(available, sources) {
     bytes: item.probe.bytes,
     error: item.probe.error,
   }))
-  const usable = probed.filter(item => item.probe.ok)
-  const pool = usable.length ? usable : probed
-  pool.sort((a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms))
-  const chosen = pool[0]
+  const chosen = validSecond[0] || validFirst[0] || firstPass.sort(firstSort)[0] || candidates[0]
   return { ...available, source: chosen.source, url: chosen.url, speed: chosen.probe.bps || 0, benchmarks }
 }
 
