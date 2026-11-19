@@ -1,6 +1,6 @@
 {
   "name": "shelldeck",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "private": true,
   "description": "Windows 便携 SSH/SFTP 桌面工作台",
   "author": "ShellDeck",
