@@ -80,7 +80,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-folder.ps1
 
 - 仓库内置在 `shared/update-config.json`，设置里不暴露地址
 - 「设置 → 更新」二选一：GitHub 加速，或自定义 HTTP/SOCKS 代理
-- 自动加速模式会对直连和内置加速源做连接延迟与下载速度测试，自动选择最快源；代理模式所有更新请求走指定代理
+- 检查更新只读取签名清单；点击下载后才对加速源做延迟与下载速度测试，自动选择最快源；代理模式所有更新请求走指定代理
 - 每次 Release 上传 `app.asar`、`release.json`、`release.json.sig`
 - 普通更新只下载并替换 `runtime/resources/app.asar`，数据目录不动
 - Electron、原生模块或入口启动器变化时，用 `--format full` 生成整包清单；整包目前需手动替换 `runtime`

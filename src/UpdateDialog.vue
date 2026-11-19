@@ -14,9 +14,10 @@ const emit = defineEmits(['close', 'update-now', 'confirm-close', 'confirm-insta
 
 const statusText = computed(() => ({
   idle: '点击检查更新',
-  checking: '正在检查并测速…',
+  checking: '正在检查更新…',
   available: '发现新版本',
   'up-to-date': '已是最新版本',
+  testing: '正在测速加速源…',
   downloading: '正在下载更新…',
   ready: '更新已下载',
   installing: '正在重启安装…',
@@ -24,7 +25,7 @@ const statusText = computed(() => ({
 }[props.state.status] || ''))
 
 const format = computed(() => props.state.asset?.format === 'full' ? 'full' : 'asar')
-const showUpdate = computed(() => ['available', 'downloading', 'ready', 'installing'].includes(props.state.status))
+const showUpdate = computed(() => ['available', 'testing', 'downloading', 'ready', 'installing'].includes(props.state.status))
 const showError = computed(() => props.error || props.state.error || '')
 const speedText = computed(() => {
   const bps = Number(props.state.speed) || 0
@@ -32,11 +33,13 @@ const speedText = computed(() => {
   return bps >= 1024 * 1024 ? (bps / 1024 / 1024).toFixed(1) + ' MB/s' : Math.max(1, Math.round(bps / 1024)) + ' KB/s'
 })
 const checking = computed(() => props.state.status === 'checking')
+const testing = computed(() => props.state.status === 'testing')
 const downloading = computed(() => props.state.status === 'downloading')
 const ready = computed(() => props.state.status === 'ready')
 const installing = computed(() => props.state.status === 'installing')
 const actionLabel = computed(() => {
   if (checking.value) return '正在检查…'
+  if (testing.value) return '正在测速…'
   if (downloading.value) return `下载中 ${props.state.progress || 0}%`
   if (installing.value) return '正在安装…'
   if (ready.value && format.value === 'full') return '需手动替换'
@@ -44,7 +47,7 @@ const actionLabel = computed(() => {
   if (ready.value) return '重启安装'
   return '立即更新'
 })
-const actionDisabled = computed(() => checking.value || downloading.value || installing.value || (ready.value && (format.value === 'full' || !props.packaged)))
+const actionDisabled = computed(() => checking.value || testing.value || downloading.value || installing.value || (ready.value && (format.value === 'full' || !props.packaged)))
 
 function formatTime(value) {
   if (!value) return ''
@@ -93,7 +96,7 @@ function updateNow() {
           <p>已是最新版本。</p>
         </div>
         <div v-else-if="state.status === 'checking'" class="update-empty">
-          <p>正在检查并测速…</p>
+          <p>正在检查更新…</p>
         </div>
         <div v-else class="update-empty">
           <p>{{ showError || '点击下方按钮检查是否有新版本。' }}</p>

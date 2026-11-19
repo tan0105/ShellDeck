@@ -33,9 +33,10 @@ const speedText = computed(() => {
 
 const statusText = computed(() => ({
   idle: '尚未检查',
-  checking: '正在检查并测速…',
+  checking: '正在检查更新…',
   available: `发现新版本 v${props.updateState.version || ''}`,
   'up-to-date': '已是最新版本',
+  testing: '正在测速加速源…',
   downloading: `正在下载 ${props.updateState.progress || 0}%`,
   ready: '更新已下载',
   installing: '正在重启安装…',
@@ -149,7 +150,7 @@ function doRestore() { confirmRestore.value = false; emit('restore') }
             <button v-if="updateState.status === 'available' || updateState.status === 'ready'" type="button" class="ssh-primarybtn" @click="emit('open-update')">查看更新</button>
           </div>
           <p v-if="netMode === 'proxy'" class="ssl-hint">所有更新请求通过自定义代理访问 GitHub，支持 http/https/socks5，暂不支持代理账号密码。</p>
-          <p v-else class="ssl-hint">自动模式会先测速所有加速源，按实测下载速度选择最快的一个。普通更新只下载 app.asar；Electron、原生模块或入口启动器变化时需要整包手动更新。</p>
+          <p v-else class="ssl-hint">自动模式会在下载更新时测速加速源，按实测速度选择最快的一个。普通更新只下载 app.asar；Electron、原生模块或入口启动器变化时需要整包手动更新。</p>
         </section>
 
         <div class="um-dialog-actions"><button type="button" @click="emit('close')">关闭</button></div>

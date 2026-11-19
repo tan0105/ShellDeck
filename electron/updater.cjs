@@ -268,44 +268,48 @@ async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) 
   })
 }
 
-async function selectFastestSource(available, sources) {
-  if (available.source.type === 'local') return { ...available, speed: 0 }
-  const rawUrl = String(available.asset.url)
-  const candidates = sources
+function buildCandidateList(rawUrl, sources) {
+  return sources
     .filter(source => !inBackoff(source))
     .map(source => {
       if (source.type === 'local') return null
       let url = rawUrl
       if (source.proxyPrefix && /^https:\/\/github\.com\//i.test(url)) url = source.proxyPrefix + url
       if (!/^https:\/\//i.test(url)) return null
-      return { source, url }
+      return { url, name: source.name, id: source.id, type: source.type }
     })
     .filter(Boolean)
-  if (!candidates.length) return { ...available, speed: 0 }
-  if (candidates.length === 1) return { ...available, source: candidates[0].source, url: candidates[0].url, speed: 0 }
+}
+
+async function chooseFastestAsset(asset) {
+  const candidates = (asset.candidates || []).filter(item => /^https:\/\//i.test(item.url))
+  if (!candidates.length) return { url: asset.url, speed: 0, benchmarks: [] }
+  if (candidates.length === 1) {
+    return { url: candidates[0].url, name: candidates[0].name, id: candidates[0].id, type: candidates[0].type, speed: 0, benchmarks: [] }
+  }
   const firstPass = []
   for (const item of candidates) {
     firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 256 * 1024, 5000) })
   }
-  const firstSort = (a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms)
-  const validFirst = firstPass.filter(item => item.probe.ok).sort(firstSort)
+  const sortProbe = (a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms)
+  const validFirst = firstPass.filter(item => item.probe.ok).sort(sortProbe)
   const finalists = (validFirst.length ? validFirst : firstPass).slice(0, 3)
   const secondPass = []
   for (const item of finalists) {
     secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 2 * 1024 * 1024, 10000) })
   }
-  const validSecond = secondPass.filter(item => item.probe.ok).sort(firstSort)
+  const validSecond = secondPass.filter(item => item.probe.ok).sort(sortProbe)
   const pool = validSecond.length ? validSecond : (validFirst.length ? validFirst : firstPass)
   const benchmarks = (validSecond.length ? validSecond : pool).map(item => ({
-    name: item.source.name,
+    name: item.name,
     ok: item.probe.ok,
     bps: item.probe.bps,
     ttfb: item.probe.ttfb,
     bytes: item.probe.bytes,
     error: item.probe.error,
   }))
-  const chosen = validSecond[0] || validFirst[0] || firstPass.sort(firstSort)[0] || candidates[0]
-  return { ...available, source: chosen.source, url: chosen.url, speed: chosen.probe.bps || 0, benchmarks }
+  const chosen = validSecond[0] || validFirst[0] || firstPass.sort(sortProbe)[0] || candidates[0]
+  return { url: chosen.url, name: chosen.name, id: chosen.id, type: chosen.type, speed: chosen.probe.bps || 0, benchmarks }
 }
 
 function backoffSetting(id) {
@@ -376,25 +380,26 @@ async function check({ manual = false } = {}) {
     }
     db.setSetting('update.lastCheck', new Date().toISOString())
     if (available) {
-      const selected = await selectFastestSource(available, sources)
+      const rawUrl = String(available.asset.url)
       return setState({
         status: 'available',
-        version: selected.manifest.version,
-        notes: String(selected.manifest.notes || ''),
-        source: selected.source.name,
-        speed: selected.speed || 0,
-        benchmark: selected.benchmarks || [],
+        version: available.manifest.version,
+        notes: String(available.manifest.notes || ''),
+        source: available.source.name,
+        speed: 0,
+        benchmark: [],
         checkedAt: new Date().toISOString(),
         progress: 0,
         error: '',
         asset: {
-          url: selected.url,
-          size: Number(selected.asset.size),
-          sha256: String(selected.asset.sha256).toLowerCase(),
-          format: selected.format,
-          electronVersion: selected.electronVersion,
-          sourceId: selected.source.id,
-          sourceType: selected.source.type,
+          url: available.url,
+          size: Number(available.asset.size),
+          sha256: String(available.asset.sha256).toLowerCase(),
+          format: available.format,
+          electronVersion: available.electronVersion,
+          sourceId: available.source.id,
+          sourceType: available.source.type,
+          candidates: buildCandidateList(rawUrl, sources),
         },
       })
     }
@@ -425,10 +430,37 @@ async function check({ manual = false } = {}) {
 async function download() {
   if (running) return snapshot()
   if (!state.asset) throw new Error('请先检查更新')
-  const asset = state.asset
+  let asset = state.asset
   const version = state.version
   running = true
-  setState({ status: 'downloading', progress: 0, error: '' })
+
+  if (asset.sourceType !== 'local' && Array.isArray(asset.candidates) && asset.candidates.length > 1) {
+    setState({ status: 'testing', progress: 0, error: '' })
+    try {
+      const chosen = await chooseFastestAsset(asset)
+      asset = {
+        ...asset,
+        url: chosen.url,
+        sourceId: chosen.id || asset.sourceId,
+        sourceType: chosen.type || asset.sourceType,
+      }
+      setState({
+        status: 'downloading',
+        source: chosen.name || state.source,
+        speed: chosen.speed || 0,
+        benchmark: chosen.benchmarks || [],
+        asset,
+        progress: 0,
+        error: '',
+      })
+    } catch (error) {
+      running = false
+      setState({ status: 'error', error: '测速失败：' + (error.message || error), progress: 0 })
+      return snapshot()
+    }
+  } else {
+    setState({ status: 'downloading', progress: 0, error: '' })
+  }
 
   let netSession = null
   if (asset.sourceType !== 'local' && /^https:\/\//i.test(asset.url)) {
