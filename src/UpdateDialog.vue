@@ -13,7 +13,7 @@ const emit = defineEmits(['close', 'update-now'])
 
 const statusText = computed(() => ({
   idle: '点击检查更新',
-  checking: '正在检查更新…',
+  checking: '正在检查并测速…',
   available: '发现新版本',
   'up-to-date': '已是最新版本',
   downloading: '正在下载更新…',
@@ -91,7 +91,7 @@ function updateNow() {
           <p>已是最新版本。</p>
         </div>
         <div v-else-if="state.status === 'checking'" class="update-empty">
-          <p>正在检查 GitHub Releases…</p>
+          <p>正在检查并测速…</p>
         </div>
         <div v-else class="update-empty">
           <p>{{ showError || '点击下方按钮检查是否有新版本。' }}</p>

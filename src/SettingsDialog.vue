@@ -33,7 +33,7 @@ const speedText = computed(() => {
 
 const statusText = computed(() => ({
   idle: '尚未检查',
-  checking: '正在检查更新…',
+  checking: '正在检查并测速…',
   available: `发现新版本 v${props.updateState.version || ''}`,
   'up-to-date': '已是最新版本',
   downloading: `正在下载 ${props.updateState.progress || 0}%`,

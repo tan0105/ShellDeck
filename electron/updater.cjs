@@ -21,6 +21,7 @@ let state = {
   source: '',
   speed: 0,
   checkedAt: '',
+  benchmark: [],
   asset: null,
 }
 let running = false
@@ -282,12 +283,23 @@ async function selectFastestSource(available, sources) {
     .filter(Boolean)
   if (!candidates.length) return { ...available, speed: 0 }
   if (candidates.length === 1) return { ...available, source: candidates[0].source, url: candidates[0].url, speed: 0 }
-  const probed = await Promise.all(candidates.map(async item => ({ ...item, probe: await probeDownloadSpeed(item.url) })))
+  const probed = []
+  for (const item of candidates) {
+    probed.push({ ...item, probe: await probeDownloadSpeed(item.url) })
+  }
+  const benchmarks = probed.map(item => ({
+    name: item.source.name,
+    ok: item.probe.ok,
+    bps: item.probe.bps,
+    ttfb: item.probe.ttfb,
+    bytes: item.probe.bytes,
+    error: item.probe.error,
+  }))
   const usable = probed.filter(item => item.probe.ok)
   const pool = usable.length ? usable : probed
   pool.sort((a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms))
   const chosen = pool[0]
-  return { ...available, source: chosen.source, url: chosen.url, speed: chosen.probe.bps || 0 }
+  return { ...available, source: chosen.source, url: chosen.url, speed: chosen.probe.bps || 0, benchmarks }
 }
 
 function backoffSetting(id) {
@@ -320,7 +332,7 @@ async function check({ manual = false } = {}) {
     return snapshot()
   }
   running = true
-  setState({ status: 'checking', error: '', progress: 0, asset: null, speed: 0 })
+  setState({ status: 'checking', error: '', progress: 0, asset: null, speed: 0, benchmark: [] })
   const failures = []
   let upToDate = null
   let available = null
@@ -365,6 +377,7 @@ async function check({ manual = false } = {}) {
         notes: String(selected.manifest.notes || ''),
         source: selected.source.name,
         speed: selected.speed || 0,
+        benchmark: selected.benchmarks || [],
         checkedAt: new Date().toISOString(),
         progress: 0,
         error: '',
@@ -385,6 +398,7 @@ async function check({ manual = false } = {}) {
         version: upToDate.version,
         source: upToDate.source,
         speed: 0,
+        benchmark: [],
         checkedAt: new Date().toISOString(),
         progress: 0,
         error: failures.join('\n'),
@@ -392,9 +406,9 @@ async function check({ manual = false } = {}) {
       })
     }
     if (failures.length) throw new Error(failures.join('\n'))
-    return setState({ status: 'up-to-date', speed: 0, checkedAt: new Date().toISOString(), progress: 0, asset: null })
+    return setState({ status: 'up-to-date', speed: 0, benchmark: [], checkedAt: new Date().toISOString(), progress: 0, asset: null })
   } catch (error) {
-    setState({ status: 'error', speed: 0, error: error.message || '检查更新失败', progress: 0 })
+    setState({ status: 'error', speed: 0, benchmark: [], error: error.message || '检查更新失败', progress: 0 })
     if (manual) throw error
     return snapshot()
   } finally {
