@@ -595,9 +595,16 @@ function install() {
   if (!fs.existsSync(launcher) || !fs.existsSync(targetAsar)) {
     throw new Error('未找到文件夹版入口或 app.asar，无法自动安装')
   }
+  const embeddedHelper = path.join(__dirname, 'update-helper.cjs')
   const helper = app.isPackaged
-    ? path.join(process.resourcesPath, 'update-helper.cjs')
-    : path.join(__dirname, 'update-helper.cjs')
+    ? path.join(paths.updatesDir, 'update-helper.cjs')
+    : embeddedHelper
+  if (app.isPackaged) {
+    fs.mkdirSync(paths.updatesDir, { recursive: true })
+    let helperSource = embeddedHelper
+    if (!fs.existsSync(helperSource)) helperSource = path.join(process.resourcesPath, 'update-helper.cjs')
+    fs.writeFileSync(helper, fs.readFileSync(helperSource))
+  }
   const backup = targetAsar + '.previous'
   const logPath = path.join(paths.updatesDir, 'update.log')
   try { fs.rmSync(logPath, { force: true }) } catch { /* ignore */ }
