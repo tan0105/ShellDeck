@@ -456,7 +456,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
               <span class="ssh-draghandle">⋮⋮</span>
               <span class="ssh-ticon" :class="session.kind">{{ session.kind === 'file' ? 'F' : '>_' }}</span>
               <span class="ssh-tname">{{ sessionTitle(session) }}</span>
-              <span class="ssh-tmeta">{{ session.kind === 'file' ? '文件管理' : sessionMeta(session) }}</span>
+              <span class="ssh-tmeta" :title="sessionMeta(session) + (session.kind === 'file' ? ' · 文件管理' : '')">{{ session.kind === 'file' ? `文件管理 · ${sessionMeta(session)}` : sessionMeta(session) }}</span>
               <span class="ssh-theadspace"></span>
               <button type="button" class="ssh-tbtn" :title="maxedId === session.id ? '还原' : '放大'" @click.stop="toggleMax(session)">⤢</button>
               <button type="button" class="ssh-tbtn" title="关闭" @click.stop="closeSession(session)">×</button>
