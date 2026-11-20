@@ -10,7 +10,7 @@ const props = defineProps({
   theme: { type: String, default: 'light' },
   updateState: { type: Object, default: () => ({ status: 'idle' }) },
 })
-const emit = defineEmits(['notice', 'edit-server', 'new-server', 'delete-server', 'open-commands', 'open-settings', 'import-excel', 'export-excel', 'toggle-theme', 'open-update'])
+const emit = defineEmits(['notice', 'edit-server', 'copy-server', 'new-server', 'delete-server', 'open-commands', 'open-settings', 'import-excel', 'export-excel', 'toggle-theme', 'open-update'])
 
 const query = ref('')
 const tagFilter = ref('')
@@ -293,7 +293,7 @@ function openServerMenu(server, event) {
   if (!server) return
   selectedId.value = server.id
   const width = 190
-  const height = 330
+  const height = 370
   serverMenu.value = {
     server,
     x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
@@ -354,6 +354,11 @@ function copyPasswordFromMenu() {
   const server = serverMenu.value?.server
   serverMenu.value = null
   if (server) copyPassword(server)
+}
+function copyServerFromMenu() {
+  const server = serverMenu.value?.server
+  serverMenu.value = null
+  if (server) emit('copy-server', server)
 }
 function deleteServerFromMenu() {
   const server = serverMenu.value?.server
@@ -590,6 +595,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
         <div class="context-menu-sep"></div>
         <button type="button" role="menuitem" @click="detailFromMenu">查看详情</button>
         <button type="button" role="menuitem" @click="editServerFromMenu">编辑服务器</button>
+        <button type="button" role="menuitem" @click="copyServerFromMenu">复制服务器</button>
         <button v-if="serverMenu.server.password" type="button" role="menuitem" @click="copyPasswordFromMenu">复制密码</button>
         <div class="context-menu-sep"></div>
         <button type="button" class="danger" role="menuitem" @click="deleteServerFromMenu">删除服务器</button>

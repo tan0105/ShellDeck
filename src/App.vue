@@ -132,6 +132,33 @@ async function saveServer(payload) {
     editor.value = { ...editor.value, busy: false, error: error.message || '保存失败' }
   }
 }
+function copiedServerName(name) {
+  const root = String(name || '服务器').trim()
+  const names = new Set(servers.value.map(server => server.name))
+  let index = 0
+  while (true) {
+    const suffix = index ? ` - 副本 ${index + 1}` : ' - 副本'
+    const candidate = root.slice(0, Math.max(1, 60 - suffix.length)) + suffix
+    if (!names.has(candidate)) return candidate
+    index += 1
+  }
+}
+
+async function copyServer(server) {
+  try {
+    const saved = await window.shellDeck.servers.save({
+      ...server,
+      id: undefined,
+      name: copiedServerName(server.name),
+      tags: [...(server.tags || [])],
+    })
+    await loadServers()
+    openEditServer(saved)
+    showToast('服务器已复制，可继续修改')
+  } catch (error) {
+    showToast(error.message || '复制服务器失败', 'error')
+  }
+}
 async function deleteServer(server) {
   try {
     await window.shellDeck.servers.remove(server.id)
@@ -438,6 +465,7 @@ async function restoreDatabase() {
       @notice="showToast"
       @new-server="openNewServer"
       @edit-server="openEditServer"
+      @copy-server="copyServer"
       @delete-server="deleteServer"
       @open-commands="openCommands"
       @open-settings="openSettings"
