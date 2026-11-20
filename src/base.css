@@ -344,12 +344,18 @@
 .ssh-rootbadge{display:inline-block;margin-left:8px;font-size:10px;font-weight:600;color:#fff;background:#c0563f;border-radius:4px;padding:1px 6px;vertical-align:middle}
 .ssh-routetag{display:inline-block;margin-left:8px;font-size:10px;font-weight:600;color:#315ee9;background:#eef2ff;border-radius:4px;padding:1px 6px;vertical-align:middle}
 .ssh-routetag.nas{color:#8a5200;background:#fff3db}
-.ssh-filepathbar{margin:0 0 9px;display:flex;flex-direction:column;gap:6px}
+.ssh-filepathbar{margin:0 0 9px;display:flex;align-items:center;gap:7px}
+.ssh-pathmain{flex:1;min-width:0;display:flex;align-items:center}
+.ssh-crumbbar{flex:1;min-width:0;height:30px;display:flex;align-items:center;padding:0 7px;border:1px solid transparent;border-radius:6px;cursor:text;overflow:hidden}
+.ssh-crumbbar:hover{background:#f7f9ff;border-color:#e4e8ef}
+.ssh-crumbbar .ssh-crumbs{flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.ssh-crumbbar .ssh-crumbs::-webkit-scrollbar{display:none}
+.ssh-crumbbar .ssh-crumb,.ssh-crumbbar .ssh-crumbsep,.ssh-crumbbar .ssh-rootbadge{flex:none}
 .ssh-crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:1px;font-size:11px;color:#9aa4b2;min-height:20px}
 .ssh-crumb{border:0;background:none;padding:2px 5px;border-radius:4px;color:#5a6b82;font-size:11px;cursor:pointer;font-family:ui-monospace,Consolas,monospace;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ssh-crumb:hover{background:#f2f5ff;color:#315ee9}
 .ssh-crumbsep{color:#c3cad4}
-.ssh-pathrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ssh-pathrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;min-width:0}
 .ssh-pathinput{flex:1;min-width:180px;height:32px;border:1px solid #e4e8ef;border-radius:6px;padding:0 9px;font-size:12px;outline:none;font-family:ui-monospace,Consolas,monospace;color:#202b3c}
 .ssh-pathinput:focus{border-color:#8299ee;box-shadow:0 0 0 3px #4169e910}
 .ssh-sudo{display:inline-flex;align-items:center;gap:6px;height:32px;line-height:1;font-size:11px;color:#7d8baa;cursor:pointer;white-space:nowrap;user-select:none;flex:none}
@@ -443,6 +449,8 @@
 @media(max-width:520px){
   .ssh-route>span{display:none}
   .pv-count{display:none}
+  .ssh-filepathbar{flex-wrap:wrap}
+  .ssh-pathmain{flex-basis:100%}
   .ssh-filepathbar .ssh-sudo{flex:1;justify-content:flex-end}
   .pv-table{min-width:980px}
   .ssh-filetable th,.ssh-filetable td{padding:8px 7px;font-size:11.5px}

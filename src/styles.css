@@ -1094,6 +1094,7 @@ html.theme-dark .ssh-ticon.terminal { background: #214283; color: #9fc8ff; borde
 html.theme-dark .ssh-file-session { background: #2b2b2b; color: #a9b7c6; }
 html.theme-dark .ssh-file-session .ssh-crumb { color: #a9b7c6; }
 html.theme-dark .ssh-file-session .ssh-crumb:hover { color: #7fb2ff; background: #3c3f41; }
+html.theme-dark .ssh-crumbbar:hover { background: #3c3f41; border-color: #555; }
 html.theme-dark .ssh-crumbsep { color: #606366; }
 html.theme-dark .ssh-file-session .ssh-secondary,
 html.theme-dark .ssh-file-session .ssh-primary {

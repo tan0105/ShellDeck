@@ -335,6 +335,33 @@ async function read(sessionId, target) {
   return buffer.toString('utf8')
 }
 
+async function createFile(sessionId, target) {
+  const session = getSession(sessionId)
+  const remotePath = normalizeRemote(target)
+  if (session.sudo) {
+    try {
+      await runSudo(session, `sudo -n sh -c 'set -C; : > ${base64Path(remotePath)}'`)
+    } catch (error) {
+      if (/exist|file exists|cannot create/i.test(String(error.message))) throw new Error('同名文件已存在')
+      throw error
+    }
+    return true
+  }
+  await new Promise((resolve, reject) => {
+    session.sftp.open(remotePath, 'wx', (error, handle) => {
+      if (error) {
+        reject(new Error(/exist|failure/i.test(String(error.message)) ? '同名文件已存在' : humanFsError(error)))
+        return
+      }
+      session.sftp.close(handle, closeError => {
+        if (closeError) reject(new Error(humanFsError(closeError)))
+        else resolve()
+      })
+    })
+  })
+  return true
+}
+
 async function write(sessionId, target, content) {
   const session = getSession(sessionId)
   const remotePath = normalizeRemote(target)
@@ -540,6 +567,18 @@ async function pathExists(session, remotePath) {
   } catch {
     return false
   }
+}
+
+async function resolveLink(sessionId, target) {
+  const session = getSession(sessionId)
+  const remotePath = normalizeRemote(target)
+  if (session.sudo) {
+    const out = await runSudo(session, `sudo -n stat -L -c '%F' -- ${base64Path(remotePath)}`)
+    const type = /directory/i.test(out.toString('utf8')) ? 'dir' : 'file'
+    return { type }
+  }
+  const stat = await pcall(session.sftp, 'stat', remotePath)
+  return { type: stat.isDirectory() ? 'dir' : 'file', size: Number(stat.size) || 0, mtime: stat.mtime ? Number(stat.mtime) : 0 }
 }
 
 async function statMany(sessionId, targetDir, relativePaths) {
@@ -798,6 +837,7 @@ module.exports = {
   close,
   list,
   read,
+  createFile,
   write,
   copy,
   move,
@@ -806,6 +846,7 @@ module.exports = {
   remove,
   chmod,
   inspectLocal,
+  resolveLink,
   statMany,
   upload,
   download,

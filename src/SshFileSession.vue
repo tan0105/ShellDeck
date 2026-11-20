@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   sessionId: { type: String, required: true },
@@ -10,6 +10,8 @@ const emit = defineEmits(['notice'])
 const api = window.shellDeck.sftp
 const filePath = ref('')
 const filePathInput = ref('')
+const pathEditing = ref(false)
+const pathInputRef = ref(null)
 const fileEntries = ref([])
 const fileBusy = ref(false)
 const fileError = ref('')
@@ -264,6 +266,7 @@ function closeFileSession() {
 
 async function loadFiles(target) {
   closeFileMenu()
+  pathEditing.value = false
   if (connectState.value !== 'ready') return
   fileBusy.value = true
   fileError.value = ''
@@ -287,8 +290,37 @@ function goPath() {
   if (!value) { filePathInput.value = filePath.value; return }
   loadFiles(value.startsWith('/') ? value : joinPath(value))
 }
-function enterEntry(entry) {
-  if (entry.type === 'dir') loadFiles(joinPath(entry.name))
+function beginPathEdit() {
+  if (pathEditing.value) return
+  filePathInput.value = filePath.value || '/'
+  pathEditing.value = true
+  nextTick(() => {
+    pathInputRef.value?.focus()
+    pathInputRef.value?.select()
+  })
+}
+function submitPath() {
+  pathEditing.value = false
+  goPath()
+}
+function cancelPathEdit() {
+  pathEditing.value = false
+  filePathInput.value = filePath.value
+}
+async function enterEntry(entry) {
+  if (entry.type === 'dir') { loadFiles(joinPath(entry.name)); return }
+  if (entry.type !== 'link') return
+  try {
+    const target = await api.resolveLink(props.sessionId, joinPath(entry.name))
+    if (target.type === 'dir') loadFiles(joinPath(entry.name))
+    else editFile(entry)
+  } catch (error) {
+    notify('无法打开符号链接：' + (error.message || error))
+  }
+}
+function rowDoubleClick(entry, event) {
+  if (event.target instanceof Element && event.target.closest('.ssh-fileactions')) return
+  if (entry.type === 'dir' || entry.type === 'link') enterEntry(entry)
 }
 
 async function toggleSudo(event) {
@@ -504,6 +536,17 @@ function newFolder() {
     catch (error) { notify(error.message || '新建失败') }
   })
 }
+function newFile() {
+  askName('新建文件', '', async name => {
+    try {
+      await api.createFile(props.sessionId, joinPath(name))
+      await loadFiles(filePath.value)
+      editFile({ name, type: 'file' })
+    } catch (error) {
+      notify(error.message || '新建文件失败')
+    }
+  })
+}
 function renameEntry(entry) {
   askName('重命名', entry.name, async name => {
     try { await api.rename(props.sessionId, joinPath(entry.name), joinPath(name)); await loadFiles(filePath.value) }
@@ -608,25 +651,30 @@ onBeforeUnmount(() => {
 <template>
   <div class="ssh-file-session">
     <div class="ssh-filepathbar">
-      <div class="ssh-crumbs">
-        <button type="button" class="ssh-crumb" @click="loadFiles('/')">根目录</button>
-        <template v-for="crumb in fileCrumbs" :key="crumb.path">
-          <span class="ssh-crumbsep">/</span>
-          <button type="button" class="ssh-crumb" @click="loadFiles(crumb.path)">{{ crumb.name }}</button>
-        </template>
-        <span v-if="fileSudo" class="ssh-rootbadge">root</span>
+      <div class="ssh-pathmain">
+        <div v-if="!pathEditing" class="ssh-crumbbar" title="点击空白处编辑路径" @click="beginPathEdit">
+          <div class="ssh-crumbs">
+            <button type="button" class="ssh-crumb" @click.stop="loadFiles('/')">根目录</button>
+            <template v-for="crumb in fileCrumbs" :key="crumb.path">
+              <span class="ssh-crumbsep">›</span>
+              <button type="button" class="ssh-crumb" @click.stop="loadFiles(crumb.path)">{{ crumb.name }}</button>
+            </template>
+            <span v-if="fileSudo" class="ssh-rootbadge">root</span>
+          </div>
+        </div>
+        <div v-else class="ssh-pathrow">
+          <input ref="pathInputRef" v-model="filePathInput" class="ssh-pathinput" placeholder="输入路径后回车，例如 /etc/nginx" @keydown.enter.prevent="submitPath" @keydown.esc.prevent="cancelPathEdit" />
+          <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="submitPath">前往</button>
+        </div>
       </div>
-      <div class="ssh-pathrow">
-        <input v-model="filePathInput" class="ssh-pathinput" placeholder="输入路径后回车，例如 /etc/nginx" @keydown.enter="goPath" />
-        <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="goPath">前往</button>
-        <label class="ssh-sudo" title="用该账号的 sudo 权限打开文件管理，需要账号有 sudo 权限"><input type="checkbox" :checked="fileSudo" @change="toggleSudo" /><span>root 模式</span></label>
-      </div>
+      <label class="ssh-sudo" title="用该账号的 sudo 权限打开文件管理，需要账号有 sudo 权限"><input type="checkbox" :checked="fileSudo" @change="toggleSudo" /><span>root 模式</span></label>
     </div>
     <div class="ssh-filebar">
       <button type="button" class="ssh-secondary" :disabled="!fileParent || fileBusy" @click="loadFiles(fileParent)">↑ 上一级</button>
       <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="loadFiles(filePath)">刷新</button>
       <button type="button" class="ssh-primary" :disabled="fileBusy || connectState !== 'ready'" @click="pickUpload">上传</button>
       <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="pickFolder">上传文件夹</button>
+      <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="newFile">新建文件</button>
       <button type="button" class="ssh-secondary" :disabled="fileBusy || connectState !== 'ready'" @click="newFolder">新建文件夹</button>
       <button type="button" class="ssh-secondary" :disabled="!filePath || fileBusy || connectState !== 'ready'" @click="openPerm(null)">本目录权限</button>
       <label class="ssh-hidden-toggle"><input v-model="showHidden" type="checkbox" />显示隐藏文件</label>
@@ -657,8 +705,8 @@ onBeforeUnmount(() => {
           </tr>
           <tr v-else-if="fileBusy && !sortedEntries.length"><td colspan="5" class="ssh-fileempty">正在读取…</td></tr>
           <tr v-else-if="!sortedEntries.length"><td colspan="5" class="ssh-fileempty">{{ hiddenCount && !showHidden ? '目录只有隐藏项，勾选“显示隐藏文件”查看' : '目录为空' }}</td></tr>
-          <tr v-for="entry in sortedEntries" :key="entry.name" @contextmenu.prevent.stop="openFileMenu($event, entry)">
-            <td><button type="button" class="ssh-filebtn" @click="enterEntry(entry)"><span>{{ fileIcon(entry) }}</span>{{ entry.name }}</button></td>
+          <tr v-for="entry in sortedEntries" :key="entry.name" @contextmenu.prevent.stop="openFileMenu($event, entry)" @dblclick="rowDoubleClick(entry, $event)">
+            <td><button type="button" class="ssh-filebtn" :title="entry.type === 'link' ? '符号链接，点击打开目标' : entry.name" @click="enterEntry(entry)"><span>{{ fileIcon(entry) }}</span>{{ entry.name }}</button></td>
             <td>{{ entry.type === 'dir' ? '—' : formatSize(entry.size) }}</td>
             <td>{{ formatTime(entry.mtime) }}</td>
             <td class="ssh-filemode" :title="entry.modeText || ''">{{ modeText(entry) }}</td>
@@ -690,7 +738,7 @@ onBeforeUnmount(() => {
       <div v-if="fileMenu" class="context-menu" :style="{ left: fileMenu.x + 'px', top: fileMenu.y + 'px' }" role="menu">
         <div class="context-menu-head">{{ fileMenu.entry ? fileMenu.entry.name : (filePath || '/') }}</div>
         <template v-if="fileMenu.entry">
-          <button v-if="fileMenu.entry.type === 'dir'" type="button" @click="enterEntry(fileMenu.entry); closeFileMenu()">打开</button>
+          <button v-if="fileMenu.entry.type === 'dir' || fileMenu.entry.type === 'link'" type="button" @click="enterEntry(fileMenu.entry); closeFileMenu()">打开</button>
           <button v-else-if="fileMenu.entry.type === 'file'" type="button" @click="editFile(fileMenu.entry); closeFileMenu()">编辑</button>
           <button v-if="fileMenu.entry.type !== 'dir'" type="button" @click="downloadFile(fileMenu.entry); closeFileMenu()">下载</button>
           <div class="context-menu-sep"></div>
@@ -709,6 +757,7 @@ onBeforeUnmount(() => {
         <template v-else>
           <button type="button" :disabled="!clipboard || fileBusy" @click="pasteClipboard">粘贴</button>
           <div class="context-menu-sep"></div>
+          <button type="button" :disabled="fileBusy" @click="newFile(); closeFileMenu()">新建文件</button>
           <button type="button" :disabled="fileBusy" @click="newFolder(); closeFileMenu()">新建文件夹</button>
           <button type="button" :disabled="fileBusy" @click="pickUpload(); closeFileMenu()">上传文件</button>
           <button type="button" :disabled="fileBusy" @click="pickFolder(); closeFileMenu()">上传文件夹</button>
