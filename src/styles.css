@@ -1062,6 +1062,11 @@ html.theme-dark .ssh-layout button.active { background: #4a88c7; border-color: #
 html.theme-dark .ssh-pagebar button:disabled { opacity: 0.4; }
 
 html.theme-dark .ssh-grid { background: #2b2b2b; }
+html.theme-dark .ssh-drop-overlay { background: rgba(43,43,43,.88); border-color: #4a88c7; box-shadow: 0 18px 48px rgba(0,0,0,.55); }
+html.theme-dark .ssh-drop-slot { background: rgba(60,63,65,.5); border-color: #5a6a8a; color: #a9b7c6; }
+html.theme-dark .ssh-drop-slot.active { background: rgba(74,136,199,.18); border-color: #4a88c7; color: #d6e4ff; box-shadow: 0 0 0 3px rgba(74,136,199,.15); }
+html.theme-dark .ssh-drop-slot-index { background: #3b4a63; color: #a9c4ef; }
+html.theme-dark .ssh-drop-slot.active .ssh-drop-slot-index { background: #4a88c7; color: #fff; }
 html.theme-dark .ssh-empty,
 html.theme-dark .ssh-empty-state {
   background: #313335;
@@ -1186,7 +1191,13 @@ html.theme-dark .settings-section { border-color: #4a4a4a; }
 html.theme-dark .settings-auto { color: #a9b7c6; }
 html.theme-dark .settings-update-line { color: #a9b7c6; }
 html.theme-dark .settings-update-line b { color: #e2e2e2; }
-html.theme-dark .ssh-editor { background: #2b2b2b; border-color: #555; color: #a9b7c6; }
+html.theme-dark .ssh-editor { background: transparent; border-color: #555; color: #a9b7c6; }
+html.theme-dark .ssh-editor-shell { background: #2b2b2b; border-color: #555; }
+html.theme-dark .ssh-editor-lines { background: #303234; border-color: #444; color: #8a949e; }
+html.theme-dark .ssh-editor-tools { color: #a9b7c6; }
+html.theme-dark .ssh-editor-tools input,
+html.theme-dark .ssh-editor-tools button { background: #3c3f41; border-color: #555; color: #bbbbbb; }
+html.theme-dark .ssh-editor-tools button:hover { border-color: #4a88c7; color: #7fb2ff; }
 html.theme-dark .ssh-permpresets .pv-pick { background: #4c5052; border-color: #606366; color: #bbbbbb; }
 html.theme-dark .ssh-permpresets .pv-pick.active { background: #214283; border-color: #4a88c7; color: #d6e4ff; }
 

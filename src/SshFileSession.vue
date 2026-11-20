@@ -20,6 +20,9 @@ const filePerm = ref(null)
 const connectState = ref('connecting')
 const transfers = ref([])
 const editor = ref({ open: false, path: '', name: '', content: '', busy: false })
+const editorJump = ref('')
+const editorTextarea = ref(null)
+const editorGutter = ref(null)
 const nameDialog = ref({ open: false, title: '', value: '', action: null })
 const deleteFile = ref(null)
 const permDialog = ref({ open: false, path: '', name: '', dir: false, current: '', mode: '', recursive: false, busy: false, error: '' })
@@ -441,7 +444,29 @@ async function onFileDrop(event) {
   await uploadPaths(paths)
 }
 
+const editorLineCount = computed(() => String(editor.value.content || '').split('\n').length)
+const editorLineNumbers = computed(() => Array.from({ length: editorLineCount.value }, (_, index) => index + 1).join('\n'))
+
+function syncEditorScroll() {
+  if (editorGutter.value && editorTextarea.value) editorGutter.value.scrollTop = editorTextarea.value.scrollTop
+}
+function jumpEditorLine() {
+  const textarea = editorTextarea.value
+  if (!textarea) return
+  const line = Math.min(editorLineCount.value, Math.max(1, Number(editorJump.value) || 1))
+  const lines = String(editor.value.content || '').split('\n')
+  let offset = 0
+  for (let index = 0; index < line - 1; index += 1) offset += lines[index].length + 1
+  textarea.focus()
+  textarea.setSelectionRange(offset, offset + (lines[line - 1]?.length || 0))
+  const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 21.45
+  textarea.scrollTop = Math.max(0, (line - 1) * lineHeight - textarea.clientHeight / 2)
+  syncEditorScroll()
+  editorJump.value = ''
+}
+
 async function editFile(entry) {
+  editorJump.value = ''
   editor.value = { open: true, path: joinPath(entry.name), name: entry.name, content: '', busy: true }
   try {
     editor.value.content = await api.read(props.sessionId, joinPath(entry.name))
@@ -741,8 +766,18 @@ onBeforeUnmount(() => {
         <section class="um-dialog ssh-editor-dialog" role="dialog" aria-modal="true">
           <button class="um-close" aria-label="关闭" @click="editor.open = false">×</button>
           <h2>编辑 · {{ editor.name }}</h2>
-          <p class="ssh-filedir">{{ editor.path }}</p>
-          <textarea v-model="editor.content" class="ssh-editor" spellcheck="false"></textarea>
+          <div class="ssh-editor-head">
+            <p class="ssh-filedir">{{ editor.path }}</p>
+            <div class="ssh-editor-tools">
+              <span>{{ editorLineCount }} 行</span>
+              <input v-model="editorJump" type="number" min="1" :max="editorLineCount" placeholder="行号" @keydown.enter.prevent="jumpEditorLine" />
+              <button type="button" @click="jumpEditorLine">跳转</button>
+            </div>
+          </div>
+          <div class="ssh-editor-shell">
+            <pre ref="editorGutter" class="ssh-editor-lines" aria-hidden="true">{{ editorLineNumbers }}</pre>
+            <textarea ref="editorTextarea" v-model="editor.content" class="ssh-editor" wrap="off" spellcheck="false" @scroll="syncEditorScroll"></textarea>
+          </div>
           <div class="um-dialog-actions">
             <button type="button" @click="editor.open = false">取消</button>
             <button type="button" class="um-primary" :disabled="editor.busy" @click="saveEdit">{{ editor.busy ? '保存中…' : '保存' }}</button>

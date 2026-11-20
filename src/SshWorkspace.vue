@@ -22,6 +22,7 @@ const currentPage = ref(0)
 const layout = ref(4)
 const maxedId = ref('')
 const draggingId = ref('')
+const dragTarget = ref(-1)
 const confirmSession = ref(null)
 const bothOpenTarget = ref(null)
 const sessionsOpen = ref(false)
@@ -242,12 +243,31 @@ function toggleMax(session) {
 function dragStart(session, event) {
   if (maxedId.value) { event.preventDefault(); return }
   draggingId.value = session.id
+  dragTarget.value = -1
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', session.id)
 }
-function dragEnd() { draggingId.value = '' }
+function dragEnd() {
+  draggingId.value = ''
+  dragTarget.value = -1
+}
+function sessionForSlot(index) {
+  return sessions.value[currentPage.value * capacity.value + index] || null
+}
+function dropSlot(index) {
+  const sourceId = draggingId.value
+  dragTarget.value = -1
+  draggingId.value = ''
+  if (!sourceId) return
+  const sourceIndex = sessions.value.findIndex(item => item.id === sourceId)
+  if (sourceIndex < 0) return
+  const [source] = sessions.value.splice(sourceIndex, 1)
+  const targetIndex = Math.min(currentPage.value * capacity.value + index, sessions.value.length)
+  sessions.value.splice(targetIndex, 0, source)
+}
 function dropSession(target) {
   const sourceId = draggingId.value
+  dragTarget.value = -1
   draggingId.value = ''
   if (!sourceId || sourceId === target.id) return
   const sourceIndex = sessions.value.findIndex(item => item.id === sourceId)
@@ -425,7 +445,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
       </div>
 
       <div class="ssh-grid" :class="[`g${layout}`, { maxed: maxedId }]" :style="{ '--tile-scale': scale }">
-        <section v-for="(session, index) in sessions" :key="session.id" class="ssh-tile" :class="[session.kind === 'file' ? 'filetile' : 'termtile', { 'session-hidden': !isSessionVisible(index), focused: selectedId === session.serverId && maxedId !== session.id, maxed: maxedId === session.id }]" @click="selectServer(serverFor(session) || session.server)" @dragover.prevent @drop="dropSession(session)">
+        <section v-for="(session, index) in sessions" :key="session.id" class="ssh-tile" :class="[session.kind === 'file' ? 'filetile' : 'termtile', { 'session-hidden': !isSessionVisible(index), focused: selectedId === session.serverId && maxedId !== session.id, maxed: maxedId === session.id, dragging: draggingId === session.id }]" @click="selectServer(serverFor(session) || session.server)" @dragover.prevent @drop="dropSession(session)">
           <div class="ssh-tile-inner">
             <div class="ssh-tilehead" draggable="true" @dragstart="dragStart(session, $event)" @dragend="dragEnd">
               <span class="ssh-draghandle">⋮⋮</span>
@@ -457,6 +477,22 @@ function hasSession(server) { return sessions.value.some(session => session.serv
             <span class="ssh-empty-hint">新建会话</span>
           </button>
         </template>
+        <div v-if="draggingId && !maxedId" class="ssh-drop-overlay" @dragover.prevent @dragleave.self="dragTarget = -1">
+          <div class="ssh-drop-grid" :class="`g${layout}`">
+            <div
+              v-for="index in capacity"
+              :key="`drop-slot-${index}`"
+              class="ssh-drop-slot"
+              :class="{ active: dragTarget === index - 1 }"
+              @dragenter.prevent.stop="dragTarget = index - 1"
+              @dragover.prevent.stop="dragTarget = index - 1"
+              @drop.prevent.stop="dropSlot(index - 1)"
+            >
+              <span class="ssh-drop-slot-index">{{ index }}</span>
+              <span class="ssh-drop-slot-name">{{ sessionForSlot(index - 1) ? sessionTitle(sessionForSlot(index - 1)) : '空位' }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
