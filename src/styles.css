@@ -481,9 +481,15 @@ button {
   font-size: 11.5px;
 }
 
+.cd-listtools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .cd-listhead .ssh-softbtn {
   height: 24px;
-  padding: 0 8px;
+  padding: 0 7px;
   font-size: 9.5px;
 }
 
@@ -1492,6 +1498,11 @@ html.theme-dark .ssh-version.available { color: #9fc8ff; }
 .update-sub { margin: 0 0 10px; font-size: 11.5px; color: #98a2b1; font-family: ui-monospace, Consolas, monospace; }
 .update-status { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #8b96a6; }
 .update-status b { color: #425066; font-size: 12.5px; }
+.update-recheck { margin-left: auto; height: 24px; padding: 0 8px; border: 1px solid #e3e8f0; border-radius: 5px; background: #fff; color: #56637a; font-size: 10px; cursor: pointer; font-family: inherit; }
+.update-recheck:hover { border-color: #b9c7f2; color: #2f5bea; background: #f7f9ff; }
+.update-recheck:disabled { opacity: .55; cursor: default; }
+html.theme-dark .update-recheck { background: #3c3f41; border-color: #555; color: #bbbbbb; }
+html.theme-dark .update-recheck:hover { border-color: #4a88c7; color: #7fb2ff; background: #45494a; }
 .update-empty { margin: 10px 0; padding: 12px; border: 1px dashed #dfe5ef; border-radius: 8px; background: #fafbfd; }
 .update-empty p { margin: 0 0 8px; font-size: 11.5px; line-height: 1.6; color: #7d8baa; }
 .update-empty p:last-child { margin-bottom: 0; }

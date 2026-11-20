@@ -7,7 +7,7 @@ const props = defineProps({
   busy: Boolean,
   error: { type: String, default: '' },
 })
-const emit = defineEmits(['close', 'save', 'remove'])
+const emit = defineEmits(['close', 'save', 'remove', 'import', 'export'])
 
 const form = reactive({ id: '', name: '', kind: 'command', body: '' })
 const editing = ref(false)
@@ -73,7 +73,14 @@ function confirmRemove() {
         <p class="sd-sub">命令直接在当前 shell 执行；脚本按当前交互 shell 逐行发送，保留当前目录和环境变量。</p>
         <div class="cd-layout">
           <div class="cd-list">
-            <div class="cd-listhead"><b>已保存</b><button type="button" class="ssh-softbtn" @click="reset">＋ 新建</button></div>
+            <div class="cd-listhead">
+              <b>已保存</b>
+              <div class="cd-listtools">
+                <button type="button" class="ssh-softbtn" :disabled="busy" @click="emit('import')">导入</button>
+                <button type="button" class="ssh-softbtn" :disabled="busy || !commands.length" @click="emit('export')">导出</button>
+                <button type="button" class="ssh-softbtn" @click="reset">＋ 新建</button>
+              </div>
+            </div>
             <input v-model="query" class="cd-search" type="search" placeholder="搜索名称或内容" spellcheck="false" />
             <div class="cd-items">
               <button v-for="command in filteredCommands" :key="command.id" type="button" class="cd-item" :class="{ active: form.id === command.id }" @click="edit(command)">

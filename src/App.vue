@@ -65,6 +65,7 @@ onMounted(async () => {
     window.shellDeck.on('app:toast', payload => showToast(payload.message, payload.kind)),
     window.shellDeck.on('updater:state', state => {
       updateState.value = state
+      if (['error', 'ready', 'available', 'idle', 'up-to-date'].includes(state.status)) updateBusy.value = false
       if (state.status === 'error') updateError.value = state.error || ''
     }),
   ]
@@ -199,6 +200,49 @@ async function exportExcel(list) {
   }
 }
 
+async function importCommandsExcel() {
+  try {
+    const file = await window.shellDeck.dialog.openExcel('选择常用指令 Excel')
+    if (!file) return
+    const bytes = Uint8Array.from(atob(file.data), char => char.charCodeAt(0))
+    const workbook = XLSX.read(bytes, { type: 'array' })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    if (!sheet) { showToast('Excel 中没有工作表', 'error'); return }
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+    if (!rows.length) { showToast('Excel 中没有指令数据', 'error'); return }
+    const result = await window.shellDeck.commands.importMany(rows)
+    await loadCommands()
+    showToast(`指令导入完成：新增 ${result.added}，更新 ${result.updated}，跳过 ${result.skipped}`)
+  } catch (error) {
+    showToast(error.message || '导入失败', 'error')
+  }
+}
+
+async function exportCommandsExcel() {
+  try {
+    const rows = commands.value.map(command => ({
+      ID: command.id,
+      名称: command.name,
+      类型: command.kind === 'script' ? '脚本' : '命令',
+      内容: command.body,
+    }))
+    if (!rows.length) { showToast('还没有常用指令，未导出', 'error'); return }
+    const sheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, sheet, '常用指令')
+    const output = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    const saved = await window.shellDeck.dialog.saveExcel({
+      title: '导出常用指令',
+      name: `ShellDeck-commands-${stamp}.xlsx`,
+      data: bytesToBase64(new Uint8Array(output)),
+    })
+    if (saved) showToast('常用指令已导出到 ' + saved)
+  } catch (error) {
+    showToast(error.message || '导出失败', 'error')
+  }
+}
+
 function openCommands() {
   commandError.value = ''
   commandsOpen.value = true
@@ -326,7 +370,18 @@ async function installUpdate() {
     updateOpen.value = true
   }
 }
+async function cancelUpdate() {
+  try {
+    updateState.value = await window.shellDeck.updater.cancel()
+    updateError.value = ''
+    updateBusy.value = false
+    updateConfirmOpen.value = false
+  } catch (error) {
+    updateError.value = error.message || '取消失败'
+  }
+}
 function closeUpdateDialog() {
+  if (['checking', 'testing', 'downloading', 'installing'].includes(updateState.value.status)) cancelUpdate()
   updateOpen.value = false
   updateConfirmOpen.value = false
 }
@@ -334,7 +389,7 @@ function openUpdateDialog() {
   updateOpen.value = true
   updateConfirmOpen.value = false
   updateError.value = ''
-  if (updateState.value.status === 'idle') checkUpdate()
+  if (['idle', 'up-to-date', 'error'].includes(updateState.value.status)) checkUpdate()
 }
 async function openDataDir() {
   try { await window.shellDeck.app.openDataDir() }
@@ -391,7 +446,7 @@ async function restoreDatabase() {
     />
 
     <ServerEditor :open="editor.open" :server="editor.server" :known-tags="knownTags" :busy="editor.busy" :error="editor.error" @close="closeEditor" @save="saveServer" />
-    <CommandsDialog :open="commandsOpen" :commands="commands" :busy="commandBusy" :error="commandError" @close="commandsOpen = false" @save="saveCommand" @remove="removeCommand" />
+    <CommandsDialog :open="commandsOpen" :commands="commands" :busy="commandBusy" :error="commandError" @close="commandsOpen = false" @save="saveCommand" @remove="removeCommand" @import="importCommandsExcel" @export="exportCommandsExcel" />
     <SettingsDialog
       :open="settingsOpen"
       :info="info"
@@ -424,6 +479,8 @@ async function restoreDatabase() {
       :confirm-open="updateConfirmOpen"
       @close="closeUpdateDialog"
       @update-now="updateNow"
+      @cancel-update="cancelUpdate"
+      @recheck="checkUpdate"
       @confirm-close="updateConfirmOpen = false"
       @confirm-install="installUpdate"
     />

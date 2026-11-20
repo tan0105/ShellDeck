@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('shellDeck', {
     list: () => invoke('commands:list'),
     save: command => invoke('commands:save', command),
     remove: id => invoke('commands:delete', id),
+    importMany: rows => invoke('commands:import', rows),
   },
   settings: {
     get: key => invoke('settings:get', key),
@@ -69,7 +70,7 @@ contextBridge.exposeInMainWorld('shellDeck', {
     pickFiles: () => invoke('dialog:pickFiles'),
     pickFolder: () => invoke('dialog:pickFolder'),
     pickKey: () => invoke('dialog:pickKey'),
-    openExcel: () => invoke('dialog:openExcel'),
+    openExcel: title => invoke('dialog:openExcel', title),
     saveExcel: payload => invoke('dialog:saveExcel', payload),
   },
   app: {
@@ -88,6 +89,7 @@ contextBridge.exposeInMainWorld('shellDeck', {
     check: () => invoke('updater:check'),
     download: () => invoke('updater:download'),
     install: () => invoke('updater:install'),
+    cancel: () => invoke('updater:cancel'),
     listSources: () => invoke('updater:listSources'),
     addSource: source => invoke('updater:addSource', source),
     removeSource: id => invoke('updater:removeSource', id),

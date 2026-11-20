@@ -259,6 +259,28 @@ function deleteCommand(id) {
   return true
 }
 
+function importCommands(rows) {
+  if (!Array.isArray(rows)) throw new Error('导入数据格式不正确')
+  const result = { added: 0, updated: 0, skipped: 0 }
+  for (const row of rows) {
+    try {
+      const id = String(row.id || row.ID || '').trim()
+      const name = String(row.name || row['名称'] || '').trim()
+      const rawKind = String(row.kind || row['类型'] || '')
+      const kind = /script|脚本/i.test(rawKind) ? 'script' : 'command'
+      const body = String(row.body ?? row['内容'] ?? '')
+      if (!name && !body) { result.skipped += 1; continue }
+      const exists = id ? getDb().prepare('SELECT id FROM commands WHERE id = ?').get(id) : null
+      const saved = saveCommand({ id, name, kind, body })
+      if (exists) result.updated += 1
+      else if (saved) result.added += 1
+    } catch {
+      result.skipped += 1
+    }
+  }
+  return result
+}
+
 function getSetting(key) {
   const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(String(key))
   return row ? row.value : null
@@ -367,6 +389,7 @@ module.exports = {
   listCommands,
   saveCommand,
   deleteCommand,
+  importCommands,
   getSetting,
   setSetting,
   listSources,

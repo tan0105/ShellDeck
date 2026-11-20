@@ -191,6 +191,7 @@ function registerIpc() {
   handle('commands:list', () => db.listCommands())
   handle('commands:save', (event, command) => db.saveCommand(command))
   handle('commands:delete', (event, id) => db.deleteCommand(id))
+  handle('commands:import', (event, rows) => db.importCommands(rows))
 
   handle('settings:get', (event, key) => db.getSetting(key))
   handle('settings:set', (event, key, value) => {
@@ -262,9 +263,9 @@ function registerIpc() {
     if (stat.size > 1024 * 1024) throw new Error('私钥文件过大')
     return { name: path.basename(file), content: fs.readFileSync(file, 'utf8') }
   })
-  handle('dialog:openExcel', async () => {
+  handle('dialog:openExcel', async (event, title) => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: '选择服务器 Excel',
+      title: title || '选择服务器 Excel',
       filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
       properties: ['openFile'],
     })
@@ -272,9 +273,9 @@ function registerIpc() {
     const file = result.filePaths[0]
     return { name: path.basename(file), data: fs.readFileSync(file).toString('base64') }
   })
-  handle('dialog:saveExcel', async (event, { name, data }) => {
+  handle('dialog:saveExcel', async (event, { name, data, title }) => {
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: '导出服务器清单',
+      title: title || '导出服务器清单',
       defaultPath: path.join(app.getPath('downloads'), name || 'ShellDeck-servers.xlsx'),
       filters: [{ name: 'Excel', extensions: ['xlsx'] }],
     })
@@ -325,6 +326,7 @@ function registerIpc() {
   })
   handle('updater:download', () => updater.download())
   handle('updater:install', () => updater.install())
+  handle('updater:cancel', () => updater.cancel())
   handle('updater:listSources', () => updater.listSources())
   handle('updater:addSource', (event, source) => updater.addSource(source))
   handle('updater:removeSource', (event, id) => updater.removeSource(id))

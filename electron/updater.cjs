@@ -25,6 +25,26 @@ let state = {
   asset: null,
 }
 let running = false
+let jobSeq = 0
+let currentAbort = null
+
+function isCurrent(token) {
+  return token === jobSeq
+}
+function beginJob() {
+  jobSeq += 1
+  currentAbort = null
+  return jobSeq
+}
+function endJob(token) {
+  if (isCurrent(token)) currentAbort = null
+}
+function setAbort(token, abort) {
+  if (isCurrent(token)) currentAbort = abort
+}
+function clearAbort(token, abort) {
+  if (isCurrent(token) && currentAbort === abort) currentAbort = null
+}
 
 function init(options) {
   paths = options.paths
@@ -42,6 +62,26 @@ function setState(patch) {
   return snapshot()
 }
 
+function cancel() {
+  const status = state.status
+  if (!['checking', 'testing', 'downloading', 'installing'].includes(status)) return snapshot()
+  const abort = currentAbort
+  jobSeq += 1
+  currentAbort = null
+  running = false
+  if (status === 'installing') {
+    setState({ status: 'ready', progress: 100, error: '' })
+  } else if (status === 'checking') {
+    setState({ status: state.asset ? 'available' : 'idle', progress: 0, error: '', speed: 0, benchmark: [] })
+  } else {
+    setState({ status: 'available', progress: 0, error: '', speed: 0, benchmark: [] })
+  }
+  if (abort) {
+    try { abort() } catch { /* Already stopped. */ }
+  }
+  return snapshot()
+}
+
 function compareVersions(left, right) {
   const parse = value => String(value || '0').split('-')[0].split('.').map(part => Number(part) || 0)
   const a = parse(left)
@@ -53,20 +93,29 @@ function compareVersions(left, right) {
   return 0
 }
 
-async function httpGet(url, maxBytes = 8 * 1024 * 1024, timeoutMs = 20000) {
+async function httpGet(url, maxBytes = 8 * 1024 * 1024, timeoutMs = 20000, token = 0) {
   if (!/^https:\/\//i.test(url)) throw new Error('更新源必须使用 HTTPS')
   const netSession = await getUpdateSession()
+  if (!isCurrent(token)) throw Object.assign(new Error('已取消更新'), { aborted: true })
   return new Promise((resolve, reject) => {
     let settled = false
+    let request = null
+    let abort = null
     const done = (error, value) => {
       if (settled) return
       settled = true
+      if (abort) clearAbort(token, abort)
       if (error) reject(error)
       else resolve(value)
     }
     const options = { url, method: 'GET', redirect: 'follow' }
     if (netSession) options.session = netSession
-    const request = net.request(options)
+    request = net.request(options)
+    abort = () => {
+      try { request.abort() } catch { /* already done */ }
+      done(Object.assign(new Error('已取消更新'), { aborted: true }))
+    }
+    setAbort(token, abort)
     const timer = setTimeout(() => {
       try { request.abort() } catch { /* already done */ }
       done(Object.assign(new Error('请求超时'), { transient: true }))
@@ -139,7 +188,7 @@ async function getUpdateSession() {
   return updateSession
 }
 
-async function readSource(source, timeoutMs = 20000) {
+async function readSource(source, timeoutMs = 20000, token = 0) {
   const manifestUrl = sourceManifestUrl(source)
   let raw
   let signatureText
@@ -147,8 +196,9 @@ async function readSource(source, timeoutMs = 20000) {
     raw = fs.readFileSync(manifestUrl)
     signatureText = fs.readFileSync(manifestUrl + '.sig', 'utf8')
   } else {
-    raw = await httpGet(manifestUrl, 8 * 1024 * 1024, timeoutMs)
-    signatureText = (await httpGet(manifestUrl + '.sig', 64 * 1024, timeoutMs)).toString('utf8')
+    raw = await httpGet(manifestUrl, 8 * 1024 * 1024, timeoutMs, token)
+    if (!isCurrent(token)) throw Object.assign(new Error('已取消更新'), { aborted: true })
+    signatureText = (await httpGet(manifestUrl + '.sig', 64 * 1024, timeoutMs, token)).toString('utf8')
   }
   const signature = Buffer.from(String(signatureText).replace(/\s+/g, ''), 'base64')
   if (!signature.length) throw new Error('更新清单缺少签名')
@@ -219,10 +269,11 @@ function hasSources() {
   return true
 }
 
-async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) {
+async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000, token = 0) {
   if (!/^https:\/\//i.test(url)) return { ok: false, bytes: 0, ms: 0, ttfb: 0, bps: 0, error: 'HTTPS required' }
   let netSession
   try { netSession = await getUpdateSession() } catch (error) { return { ok: false, bytes: 0, ms: 0, ttfb: 0, bps: 0, error: error.message } }
+  if (!isCurrent(token)) return { ok: false, bytes: 0, ms: 0, ttfb: 0, bps: 0, error: '已取消更新' }
   return new Promise(resolve => {
     const started = Date.now()
     let received = 0
@@ -230,10 +281,12 @@ async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) 
     let settled = false
     let request = null
     let timer = 0
+    let abort = null
     const finish = error => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      if (abort) clearAbort(token, abort)
       try { if (request) request.abort() } catch { /* already done */ }
       const ms = Math.max(1, Date.now() - started)
       resolve({
@@ -248,6 +301,8 @@ async function probeDownloadSpeed(url, maxBytes = 256 * 1024, timeoutMs = 6000) 
     const options = { url, method: 'GET', redirect: 'follow' }
     if (netSession) options.session = netSession
     request = net.request(options)
+    abort = () => finish(new Error('已取消更新'))
+    setAbort(token, abort)
     try { request.setHeader('Range', `bytes=0-${maxBytes - 1}`) } catch { /* ignore */ }
     timer = setTimeout(() => finish(new Error('测速超时')), timeoutMs)
     request.on('response', response => {
@@ -309,9 +364,13 @@ function rememberFastSource(chosen) {
   }))
 }
 
-async function chooseFastestAsset(asset) {
+async function chooseFastestAsset(asset, token = 0) {
+  const ensureCurrent = () => {
+    if (!isCurrent(token)) throw Object.assign(new Error('已取消更新'), { aborted: true })
+  }
   const candidates = (asset.candidates || []).filter(item => /^https:\/\//i.test(item.url))
   if (!candidates.length) return { url: asset.url, speed: 0, benchmarks: [] }
+  ensureCurrent()
   if (candidates.length === 1) {
     return { url: candidates[0].url, name: candidates[0].name, id: candidates[0].id, type: candidates[0].type, speed: 0, benchmarks: [] }
   }
@@ -321,14 +380,18 @@ async function chooseFastestAsset(asset) {
   }
   const firstPass = []
   for (const item of candidates) {
-    firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 128 * 1024, 3000) })
+    ensureCurrent()
+    firstPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 128 * 1024, 3000, token) })
+    ensureCurrent()
   }
   const sortProbe = (a, b) => (b.probe.bps - a.probe.bps) || (a.probe.ttfb - b.probe.ttfb) || (a.probe.ms - b.probe.ms)
   const validFirst = firstPass.filter(item => item.probe.ok).sort(sortProbe)
   const finalists = (validFirst.length ? validFirst : firstPass).slice(0, 2)
   const secondPass = []
   for (const item of finalists) {
-    secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 1024 * 1024, 6000) })
+    ensureCurrent()
+    secondPass.push({ ...item, probe: await probeDownloadSpeed(item.url, 1024 * 1024, 6000, token) })
+    ensureCurrent()
   }
   const validSecond = secondPass.filter(item => item.probe.ok).sort(sortProbe)
   const pool = validSecond.length ? validSecond : (validFirst.length ? validFirst : firstPass)
@@ -374,6 +437,7 @@ async function check({ manual = false } = {}) {
     if (manual) throw new Error('还没有配置更新仓库')
     return snapshot()
   }
+  const token = beginJob()
   running = true
   setState({ status: 'checking', error: '', progress: 0, asset: null, speed: 0, benchmark: [] })
   const failures = []
@@ -382,9 +446,11 @@ async function check({ manual = false } = {}) {
   try {
     const current = app.getVersion()
     for (const source of sources) {
+      if (!isCurrent(token)) return snapshot()
       if (inBackoff(source)) continue
       try {
-        const { manifest, manifestUrl } = await readSource(source, 6000)
+        const { manifest, manifestUrl } = await readSource(source, 6000, token)
+        if (!isCurrent(token)) return snapshot()
         clearBackoff(source.id)
         const { asset, format, electronVersion } = validateManifest(manifest)
         if (format === 'asar' && electronVersion && electronVersion !== process.versions.electron) {
@@ -407,10 +473,12 @@ async function check({ manual = false } = {}) {
         available = { source, manifest, asset, format, electronVersion, url }
         break
       } catch (error) {
+        if (!isCurrent(token)) return snapshot()
         markBackoff(source, error)
         failures.push(`${source.name}：${error.message}`)
       }
     }
+    if (!isCurrent(token)) return snapshot()
     db.setSetting('update.lastCheck', new Date().toISOString())
     if (available) {
       const rawUrl = String(available.asset.url)
@@ -452,11 +520,15 @@ async function check({ manual = false } = {}) {
     if (failures.length) throw new Error(failures.join('\n'))
     return setState({ status: 'up-to-date', speed: 0, benchmark: [], checkedAt: new Date().toISOString(), progress: 0, asset: null })
   } catch (error) {
+    if (!isCurrent(token)) return snapshot()
     setState({ status: 'error', speed: 0, benchmark: [], error: error.message || '检查更新失败', progress: 0 })
     if (manual) throw error
     return snapshot()
   } finally {
-    running = false
+    if (isCurrent(token)) {
+      running = false
+      endJob(token)
+    }
   }
 }
 
@@ -465,12 +537,14 @@ async function download() {
   if (!state.asset) throw new Error('请先检查更新')
   let asset = state.asset
   const version = state.version
+  const token = beginJob()
   running = true
 
   if (asset.sourceType !== 'local' && Array.isArray(asset.candidates) && asset.candidates.length > 1) {
     setState({ status: 'testing', progress: 0, error: '' })
     try {
-      const chosen = await chooseFastestAsset(asset)
+      const chosen = await chooseFastestAsset(asset, token)
+      if (!isCurrent(token)) return snapshot()
       asset = {
         ...asset,
         url: chosen.url,
@@ -487,7 +561,9 @@ async function download() {
         error: '',
       })
     } catch (error) {
+      if (!isCurrent(token)) return snapshot()
       running = false
+      endJob(token)
       db.setSetting('update.fastSource', '')
       setState({ status: 'error', error: '测速失败：' + (error.message || error), progress: 0 })
       return snapshot()
@@ -500,8 +576,11 @@ async function download() {
   if (asset.sourceType !== 'local' && /^https:\/\//i.test(asset.url)) {
     try {
       netSession = await getUpdateSession()
+      if (!isCurrent(token)) return snapshot()
     } catch (error) {
+      if (!isCurrent(token)) return snapshot()
       running = false
+      endJob(token)
       setState({ status: 'error', error: '下载失败：' + error.message, progress: 0 })
       return snapshot()
     }
@@ -512,7 +591,23 @@ async function download() {
     fs.mkdirSync(targetDir, { recursive: true })
     const finalPath = path.join(targetDir, asset.format === 'full' ? 'runtime.zip' : 'payload.bin')
     const partPath = finalPath + '.part'
+    let settled = false
+    let timer = 0
+    let abort = null
+    const finish = () => {
+      if (settled) return false
+      settled = true
+      clearTimeout(timer)
+      if (abort) clearAbort(token, abort)
+      endJob(token)
+      return true
+    }
     const fail = error => {
+      if (!finish()) return
+      if (!isCurrent(token)) {
+        resolve(snapshot())
+        return
+      }
       running = false
       db.setSetting('update.fastSource', '')
       try { fs.unlinkSync(partPath) } catch { /* Not present. */ }
@@ -520,6 +615,11 @@ async function download() {
       resolve(snapshot())
     }
     const succeed = () => {
+      if (!finish()) return
+      if (!isCurrent(token)) {
+        resolve(snapshot())
+        return
+      }
       running = false
       setState({ status: 'ready', progress: 100, asset: { ...asset, localPath: finalPath } })
       resolve(snapshot())
@@ -527,6 +627,7 @@ async function download() {
 
     if (asset.sourceType === 'local' || !/^https:\/\//i.test(asset.url)) {
       try {
+        if (!isCurrent(token)) { resolve(snapshot()); return }
         const buffer = fs.readFileSync(asset.url)
         const hash = crypto.createHash('sha256').update(buffer).digest('hex')
         if (buffer.length !== asset.size) throw new Error('文件大小与清单不一致')
@@ -545,19 +646,35 @@ async function download() {
     const options = { url: asset.url, method: 'GET', redirect: 'follow' }
     if (netSession) options.session = netSession
     const request = net.request(options)
-    const timer = setTimeout(() => {
+    abort = () => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timer)
+        if (abort) clearAbort(token, abort)
+        try { request.abort() } catch { /* already done */ }
+        file.destroy()
+        try { fs.unlinkSync(partPath) } catch { /* Not present. */ }
+        resolve(snapshot())
+      }
+    }
+    setAbort(token, abort)
+    timer = setTimeout(() => {
       try { request.abort() } catch { /* already done */ }
       file.destroy()
       fail(new Error('下载超时'))
     }, 10 * 60 * 1000)
+    file.on('error', error => {
+      if (isCurrent(token)) fail(error)
+    })
     request.on('response', response => {
+      if (!isCurrent(token)) return
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        clearTimeout(timer)
         file.destroy()
         fail(new Error(`HTTP ${response.statusCode}`))
         return
       }
       response.on('data', chunk => {
+        if (!isCurrent(token)) return
         received += chunk.length
         hash.update(chunk)
         file.write(chunk)
@@ -565,8 +682,9 @@ async function download() {
         setState({ status: 'downloading', progress })
       })
       response.on('end', () => {
-        clearTimeout(timer)
+        if (!isCurrent(token)) return
         file.end(() => {
+          if (!isCurrent(token)) return
           try {
             if (received !== asset.size) throw new Error('文件大小与清单不一致')
             if (hash.digest('hex') !== asset.sha256) throw new Error('SHA-256 校验失败')
@@ -577,9 +695,13 @@ async function download() {
           }
         })
       })
-      response.on('error', error => { clearTimeout(timer); file.destroy(); fail(error) })
+      response.on('error', error => {
+        if (isCurrent(token)) fail(error)
+      })
     })
-    request.on('error', error => { clearTimeout(timer); file.destroy(); fail(error) })
+    request.on('error', error => {
+      if (isCurrent(token)) fail(error)
+    })
     request.end()
   })
 }
@@ -613,6 +735,7 @@ function install() {
   }
   const backup = targetAsar + '.previous'
   const logPath = path.join(paths.updatesDir, `update-${Date.now()}.log`)
+  const token = beginJob()
   const { spawn } = require('node:child_process')
   const child = spawn(process.execPath, [
     helper,
@@ -638,19 +761,34 @@ function install() {
   let waited = 0
   let settled = false
   let timer = 0
+  let quitTimer = 0
+  const cancelInstall = () => {
+    if (settled) return
+    settled = true
+    clearInterval(timer)
+    clearTimeout(quitTimer)
+    try { child.kill() } catch { /* already gone */ }
+  }
+  setAbort(token, cancelInstall)
   const finishError = error => {
     if (settled) return
     settled = true
     clearInterval(timer)
+    clearTimeout(quitTimer)
+    clearAbort(token, cancelInstall)
     try { child.kill() } catch { /* already gone */ }
     setState({ status: 'error', error: '安装更新失败：' + (error.message || error), progress: 0 })
   }
   timer = setInterval(() => {
     if (settled) return
     if (fs.existsSync(logPath)) {
-      settled = true
       clearInterval(timer)
-      setTimeout(() => app.quit(), 500)
+      quitTimer = setTimeout(() => {
+        if (settled) return
+        settled = true
+        clearAbort(token, cancelInstall)
+        app.quit()
+      }, 1000)
       return
     }
     waited += 100
@@ -673,4 +811,4 @@ function removeSource(id) {
   return db.deleteSource(id)
 }
 
-module.exports = { init, snapshot, check, download, install, listSources, addSource, removeSource, hasSources }
+module.exports = { init, snapshot, check, download, install, cancel, listSources, addSource, removeSource, hasSources }

@@ -10,7 +10,7 @@ const props = defineProps({
   packaged: Boolean,
   confirmOpen: Boolean,
 })
-const emit = defineEmits(['close', 'update-now', 'confirm-close', 'confirm-install'])
+const emit = defineEmits(['close', 'update-now', 'cancel-update', 'recheck', 'confirm-close', 'confirm-install'])
 
 const statusText = computed(() => ({
   idle: '点击检查更新',
@@ -57,6 +57,8 @@ const actionLabel = computed(() => {
   return '立即更新'
 })
 const actionDisabled = computed(() => checking.value || testing.value || downloading.value || installing.value || (ready.value && (format.value === 'full' || !props.packaged)))
+const canCancel = computed(() => ['checking', 'testing', 'downloading', 'installing'].includes(props.state.status))
+const canRecheck = computed(() => ['idle', 'up-to-date', 'error', 'available'].includes(props.state.status))
 
 function formatTime(value) {
   if (!value) return ''
@@ -70,6 +72,10 @@ function formatSize(value) {
 }
 function updateNow() {
   if (!actionDisabled.value) emit('update-now')
+}
+function leftAction() {
+  if (canCancel.value) emit('cancel-update')
+  else emit('close')
 }
 </script>
 
@@ -86,6 +92,7 @@ function updateNow() {
           <span v-if="state.source">· {{ state.source }}</span>
           <span v-if="speedText" class="settings-muted">· {{ speedText }}</span>
           <span v-if="state.checkedAt" class="settings-muted">上次检查 {{ formatTime(state.checkedAt) }}</span>
+          <button v-if="canRecheck" type="button" class="update-recheck" :disabled="busy" @click="emit('recheck')">重新检查</button>
         </div>
 
         <div v-if="showUpdate" class="update-box">
@@ -114,7 +121,7 @@ function updateNow() {
         </div>
 
         <div class="um-dialog-actions">
-          <button type="button" @click="emit('close')">下次再说</button>
+          <button type="button" @click="leftAction">{{ canCancel ? '取消更新' : '下次再说' }}</button>
           <button v-if="state.status !== 'up-to-date'" type="button" class="um-primary" :disabled="busy || actionDisabled" @click="updateNow">{{ actionLabel }}</button>
         </div>
       </section>
