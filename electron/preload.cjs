@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('shellDeck', {
   },
   app: {
     info: () => invoke('app:info'),
+    minimize: () => invoke('app:minimize'),
     openDataDir: () => invoke('app:openDataDir'),
     backupDb: () => invoke('app:backupDb'),
     restoreDb: () => invoke('app:restoreDb'),

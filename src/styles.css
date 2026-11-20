@@ -1161,6 +1161,8 @@ html.theme-dark .ssh-filedir,
 html.theme-dark .ssh-deletemsg,
 html.theme-dark .ssh-permhint { color: #a9b7c6; }
 html.theme-dark .um-close { color: #999; }
+html.theme-dark .um-minimize { color: #999; }
+html.theme-dark .um-minimize:hover { background: #4a4d4f; color: #fff; }
 html.theme-dark .um-dialog-actions > button:first-child,
 html.theme-dark .cd-actions > button,
 html.theme-dark .settings-confirm button {

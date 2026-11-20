@@ -314,6 +314,10 @@ function registerIpc() {
     return info
   })
   handle('app:quit', (event, force) => requestQuit(Boolean(force)))
+  handle('app:minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize()
+    return true
+  })
 
   handle('clipboard:write', (event, text) => { clipboard.writeText(String(text ?? '')); return true })
   handle('clipboard:read', () => clipboard.readText())

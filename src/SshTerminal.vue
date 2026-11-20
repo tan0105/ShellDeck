@@ -10,6 +10,7 @@ const props = defineProps({
   canManageCommands: Boolean,
   title: { type: String, default: 'SSH 终端' },
   subtitle: { type: String, default: '' },
+  scale: { type: Number, default: 1 },
 })
 const emit = defineEmits(['manage-commands', 'notice'])
 
@@ -183,6 +184,16 @@ watch(cmdOpen, open => {
   window.addEventListener('scroll', closeCmdLayout)
 })
 
+function terminalFontSize(value = props.scale) {
+  return Math.max(9, Math.round(15 * (Number(value) || 1)))
+}
+
+watch(() => props.scale, value => {
+  if (!terminal) return
+  terminal.options.fontSize = terminalFontSize(value)
+  requestAnimationFrame(() => fitTerminal())
+})
+
 onMounted(() => mount())
 onBeforeUnmount(() => dispose())
 
@@ -191,7 +202,7 @@ async function mount() {
   if (!host.value) return
   terminal = new Terminal({
     cursorBlink: true,
-    fontSize: 15,
+    fontSize: terminalFontSize(),
     fontFamily: 'ui-monospace, Consolas, monospace',
     scrollback: 3000,
     theme: {

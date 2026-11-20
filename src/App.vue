@@ -412,6 +412,9 @@ function closeUpdateDialog() {
   updateOpen.value = false
   updateConfirmOpen.value = false
 }
+function minimizeWindow() {
+  window.shellDeck.app.minimize().catch(error => showToast(error.message || '最小化失败', 'error'))
+}
 function openUpdateDialog() {
   updateOpen.value = true
   updateConfirmOpen.value = false
@@ -506,6 +509,7 @@ async function restoreDatabase() {
       :packaged="Boolean(info.packaged)"
       :confirm-open="updateConfirmOpen"
       @close="closeUpdateDialog"
+      @minimize="minimizeWindow"
       @update-now="updateNow"
       @cancel-update="cancelUpdate"
       @recheck="checkUpdate"

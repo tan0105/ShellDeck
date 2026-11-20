@@ -462,7 +462,7 @@ function hasSession(server) { return sessions.value.some(session => session.serv
               <button type="button" class="ssh-tbtn" title="关闭" @click.stop="closeSession(session)">×</button>
             </div>
             <div class="ssh-tilebody">
-              <SshTerminal v-if="session.kind === 'terminal'" :session-id="session.id" :server="serverFor(session) || session.server" :sudo-password="serverFor(session)?.password || session.server.password" :commands="commands" can-manage-commands @manage-commands="emit('open-commands')" @notice="showNotice" />
+              <SshTerminal v-if="session.kind === 'terminal'" :session-id="session.id" :server="serverFor(session) || session.server" :sudo-password="serverFor(session)?.password || session.server.password" :commands="commands" :scale="scale" can-manage-commands @manage-commands="emit('open-commands')" @notice="showNotice" />
               <SshFileSession v-else :session-id="session.id" :server="serverFor(session) || session.server" @notice="showNotice" />
             </div>
           </div>
