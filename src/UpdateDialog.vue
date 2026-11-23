@@ -83,7 +83,7 @@ function leftAction() {
   <Teleport to="body">
     <div v-if="open" class="um-overlay">
       <section class="um-dialog update-dialog" role="dialog" aria-modal="true">
-        <button class="um-minimize" type="button" aria-label="最小化" title="最小化" @click="emit('minimize')">−</button>
+        <button class="um-minimize" type="button" aria-label="最小化" title="最小化" @click="emit('minimize')"><span class="um-minimize-icon"></span></button>
         <button class="um-close" type="button" aria-label="关闭" @click="emit('close')">×</button>
         <h2>软件更新</h2>
         <p class="update-sub">当前版本 v{{ currentVersion || '—' }}</p>

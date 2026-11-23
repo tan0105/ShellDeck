@@ -35,6 +35,7 @@ const nameDialog = ref({ open: false, title: '', value: '', action: null })
 const deleteTargets = ref([])
 const permDialog = ref({ open: false, path: '', name: '', dir: false, current: '', mode: '', recursive: false, busy: false, error: '' })
 const conflict = ref(null)
+const uploadScanning = ref(false)
 const fileMenu = ref(null)
 const clipboard = ref(null)
 const overwriteDialog = ref(null)
@@ -508,11 +509,16 @@ async function pickFolder() {
   if (folder) await uploadPaths([folder])
 }
 
+function topLevelName(relative) {
+  return String(relative || '').replace(/\\/g, '/').split('/')[0]
+}
+
 async function uploadPaths(paths) {
   if (!paths || !paths.length) return
   if (connectState.value !== 'ready') { notify('文件会话尚未连接'); return }
   if (fileBusy.value) { notify('正在处理上一个操作，请稍候'); return }
   fileBusy.value = true
+  uploadScanning.value = true
   try {
     const plan = await api.inspectLocal(paths)
     if (plan.skipped.length && !plan.files.length && !plan.dirs.length) {
@@ -520,15 +526,27 @@ async function uploadPaths(paths) {
       return
     }
     if (!plan.files.length && !plan.dirs.length) { notify('没有可上传的文件'); return }
-    const existing = await api.statMany(props.sessionId, filePath.value, plan.files.map(item => item.relative))
+    const localTopNames = new Set([
+      ...plan.files.map(item => topLevelName(item.relative)),
+      ...plan.dirs.map(item => topLevelName(item)),
+    ])
+    const existing = fileEntries.value.filter(entry => localTopNames.has(entry.name))
     if (existing.length) {
-      conflict.value = { plan, names: existing.slice(0, 20), count: existing.length }
+      const names = existing.map(entry => entry.name)
+      const blocked = new Set(names)
+      conflict.value = {
+        plan,
+        names: names.slice(0, 8),
+        count: names.length,
+        fileCount: plan.files.filter(item => blocked.has(topLevelName(item.relative))).length,
+      }
       return
     }
-    await startUpload(plan, false)
+    await startUpload(plan, 'skip')
   } catch (error) {
     notify(error.message || '上传失败')
   } finally {
+    uploadScanning.value = false
     fileBusy.value = false
   }
 }
@@ -540,12 +558,16 @@ async function resolveConflict(mode) {
   let plan = job.plan
   if (mode === 'skip') {
     const names = new Set(job.names)
-    plan = { ...plan, files: plan.files.filter(item => !names.has(item.relative)) }
-    if (!plan.files.length && !plan.dirs.length) { notify('已跳过全部同名文件'); return }
+    plan = {
+      ...plan,
+      files: plan.files.filter(item => !names.has(topLevelName(item.relative))),
+      dirs: plan.dirs.filter(item => !names.has(topLevelName(item))),
+    }
+    if (!plan.files.length && !plan.dirs.length) { notify('已跳过全部同名项目'); return }
   }
   fileBusy.value = true
   try {
-    await startUpload(plan, true)
+    await startUpload(plan, mode)
   } catch (error) {
     notify(error.message || '上传失败')
   } finally {
@@ -553,7 +575,7 @@ async function resolveConflict(mode) {
   }
 }
 
-async function startUpload(plan, overwrite) {
+async function startUpload(plan, strategy) {
   const transferId = newId()
   upsertTransfer({
     transferId, kind: 'upload', label: '准备上传…', percent: 0, bytesPerSecond: 0, eta: null,
@@ -566,7 +588,9 @@ async function startUpload(plan, overwrite) {
       targetDir: filePath.value,
       files: plan.files,
       dirs: plan.dirs,
-      overwrite,
+      strategy,
+      overwrite: strategy === 'overwrite',
+      prechecked: strategy !== 'resume',
     })
     const summary = []
     if (plan.files.length) summary.push(`已上传 ${plan.files.length} 个文件`)
@@ -864,6 +888,7 @@ onBeforeUnmount(() => {
       <label class="ssh-hidden-toggle"><input v-model="showHidden" type="checkbox" />显示隐藏文件</label>
       <span class="ssh-draghint">可拖文件进列表上传</span>
     </div>
+    <div v-if="uploadScanning" class="ssh-uploadscan">正在检查本地文件和同名项目…</div>
     <div v-if="activeTransfers.length" class="ssh-transfers">
       <div v-for="item in activeTransfers" :key="item.transferId" class="ssh-transfer">
         <div class="ssh-transfer-head">
@@ -907,11 +932,13 @@ onBeforeUnmount(() => {
       <div v-if="fileDragActive" class="ssh-droplayer">松开鼠标，上传到 {{ filePath || '/' }}</div>
       <div v-if="conflict" class="ssh-file-conflict">
         <div class="ssh-file-conflictbox">
-          <b>同名文件已存在</b>
-          <p>目标目录里已有 <code v-for="name in conflict.names" :key="name">{{ name }}</code>{{ conflict.count > conflict.names.length ? ` 等 ${conflict.count} 项` : '' }}。继续上传会覆盖原内容。</p>
+          <b>目标目录已有同名项目</b>
+          <p>{{ conflict.count }} 项同名<span v-if="conflict.fileCount">，涉及 {{ conflict.fileCount }} 个文件</span>。请选择处理方式：</p>
+          <div class="ssh-conflictnames"><code v-for="name in conflict.names" :key="name">{{ name }}</code><span v-if="conflict.count > conflict.names.length">等</span></div>
           <div class="ssh-file-conflictactions">
-            <button type="button" @click="resolveConflict('skip')">跳过已存在</button>
-            <button type="button" class="primary" @click="resolveConflict('overwrite')">覆盖</button>
+            <button type="button" @click="resolveConflict('skip')">只上传新文件</button>
+            <button type="button" @click="resolveConflict('resume')">续传同名文件</button>
+            <button type="button" class="primary" @click="resolveConflict('overwrite')">全部覆盖</button>
             <button type="button" @click="resolveConflict('cancel')">取消</button>
           </div>
         </div>

@@ -86,6 +86,14 @@ function mapEntry(name, attrs) {
   }
 }
 
+function formatBytes(value) {
+  const bytes = Number(value) || 0
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+}
+
 function base64Path(remotePath) {
   return `"$(printf %s ${Buffer.from(remotePath, 'utf8').toString('base64')} | base64 -d)"`
 }
@@ -718,7 +726,8 @@ async function ensureRemoteDir(session, remotePath) {
   }
 }
 
-async function upload(sender, { sessionId, transferId, targetDir, files, dirs, overwrite = false }) {
+async function upload(sender, { sessionId, transferId, targetDir, files, dirs, overwrite = false, prechecked = false, strategy = '' }) {
+  const mode = strategy || (overwrite ? 'overwrite' : 'skip')
   const session = getSession(sessionId)
   const list = Array.isArray(files) ? files : []
   const folders = [...new Set(Array.isArray(dirs) ? dirs : [])].sort((a, b) => a.split('/').length - b.split('/').length)
@@ -728,6 +737,7 @@ async function upload(sender, { sessionId, transferId, targetDir, files, dirs, o
     transferred: 0, total, fileTransferred: 0, fileTotal: 0, fileIndex: 0, fileCount: list.length,
   })
   try {
+    if (mode === 'resume' && session.sudo) throw new Error('root 模式暂不支持续传')
     for (let index = 0; index < folders.length; index += 1) {
       if (transfer.cancelled) throw new Error('上传已取消')
       const folder = folders[index]
@@ -744,7 +754,26 @@ async function upload(sender, { sessionId, transferId, targetDir, files, dirs, o
       transfer.fileTotal = Number(item.size) || 0
       transfer.label = `正在上传 ${index + 1}/${list.length}：${item.relative}`
       reportTransfer(transfer, true)
-      if (!overwrite && await pathExists(session, remotePath)) continue
+      let resumeOffset = 0
+      if (mode === 'resume') {
+        try {
+          const stat = await pcall(session.sftp, 'stat', remotePath)
+          if (stat.isDirectory()) throw new Error('目标同名项是文件夹，无法续传')
+          const remoteSize = Number(stat.size) || 0
+          const localSize = Number(item.size) || 0
+          if (remoteSize >= localSize) continue
+          resumeOffset = remoteSize
+          if (resumeOffset > 0) {
+            transfer.transferred += resumeOffset
+            transfer.fileTransferred = resumeOffset
+            transfer.label = `续传 ${index + 1}/${list.length}：${item.relative}（${formatBytes(resumeOffset)} / ${formatBytes(localSize)}）`
+            reportTransfer(transfer, true)
+          }
+        } catch (error) {
+          if (error.message && !/no such|路径不存在/i.test(error.message)) throw error
+        }
+      }
+      if (mode === 'skip' && !prechecked && await pathExists(session, remotePath)) continue
       if (session.sudo) {
         const stream = await new Promise((resolve, reject) => {
           session.client.exec(`sudo -n tee -- ${base64Path(remotePath)} > /dev/null`, (error, result) => {
@@ -756,12 +785,12 @@ async function upload(sender, { sessionId, transferId, targetDir, files, dirs, o
         stream.stderr.on('data', chunk => stderrChunks.push(chunk))
         const finished = waitExecClose(stream, stderrChunks)
         finished.catch(() => {})
-        const source = fs.createReadStream(item.localPath)
+        const source = fs.createReadStream(item.localPath, resumeOffset ? { start: resumeOffset } : undefined)
         await copyTracked(source, stream.stdin, transfer)
         await finished
       } else {
-        const source = fs.createReadStream(item.localPath)
-        const dest = session.sftp.createWriteStream(remotePath)
+        const source = fs.createReadStream(item.localPath, resumeOffset ? { start: resumeOffset } : undefined)
+        const dest = session.sftp.createWriteStream(remotePath, resumeOffset ? { flags: 'r+', start: resumeOffset } : undefined)
         await copyTracked(source, dest, transfer)
       }
       if (transfer.cancelled) throw new Error('上传已取消')
