@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import '@xterm/xterm/css/xterm.css'
 
 const props = defineProps({
@@ -24,6 +24,7 @@ const cmdQuery = ref('')
 const cmdActive = ref(0)
 const cmdBox = ref({ left: 8, top: 8, width: 260, maxHeight: 240 })
 const paramOpen = ref(false)
+const paramInputs = ref([])
 const paramCommand = ref(null)
 const paramNames = ref([])
 const paramValues = ref({})
@@ -187,6 +188,15 @@ watch(cmdOpen, open => {
 function terminalFontSize(value = props.scale) {
   return Math.max(9, Math.round(15 * (Number(value) || 1)))
 }
+
+watch(paramOpen, open => {
+  if (!open) return
+  nextTick(() => {
+    const input = Array.isArray(paramInputs.value) ? paramInputs.value[0] : paramInputs.value
+    input?.focus()
+    input?.select?.()
+  })
+})
 
 watch(() => props.scale, value => {
   if (!terminal) return
@@ -560,7 +570,7 @@ function confirmParameters() {
           <h2>填写运行参数</h2>
           <p class="ssh-filedir">{{ paramCommand?.name }}</p>
           <label v-for="name in paramNames" :key="name">{{ name }}
-            <input v-model="paramValues[name]" @keyup.enter="confirmParameters" />
+            <input ref="paramInputs" v-model="paramValues[name]" @keyup.enter="confirmParameters" />
           </label>
           <p class="ssl-hint">值会按原样插入；包含空格或特殊字符时，请在指令里自行加引号。</p>
           <p v-if="paramError" class="form-error">{{ paramError }}</p>

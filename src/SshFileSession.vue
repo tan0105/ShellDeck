@@ -12,6 +12,9 @@ const filePath = ref('')
 const filePathInput = ref('')
 const pathEditing = ref(false)
 const pathInputRef = ref(null)
+const nameInputRef = ref(null)
+const permInputRef = ref(null)
+const sudoInputRef = ref(null)
 const fileEntries = ref([])
 const fileBusy = ref(false)
 const fileError = ref('')
@@ -21,12 +24,15 @@ const fileDragActive = ref(false)
 const filePerm = ref(null)
 const connectState = ref('connecting')
 const transfers = ref([])
+const fileRoot = ref(null)
+const selectedEntry = ref(null)
+const selectedNames = ref([])
 const editor = ref({ open: false, path: '', name: '', content: '', busy: false })
 const editorJump = ref('')
 const editorTextarea = ref(null)
 const editorGutter = ref(null)
 const nameDialog = ref({ open: false, title: '', value: '', action: null })
-const deleteFile = ref(null)
+const deleteTargets = ref([])
 const permDialog = ref({ open: false, path: '', name: '', dir: false, current: '', mode: '', recursive: false, busy: false, error: '' })
 const conflict = ref(null)
 const fileMenu = ref(null)
@@ -36,6 +42,7 @@ const sudoPasswordOverride = ref('')
 const sudoPrompt = ref({ open: false, password: '', error: '' })
 let unsubscribers = []
 let transferTimers = new Map()
+let pasteTimer = 0
 
 const fileParent = computed(() => {
   if (!filePath.value || filePath.value === '/') return ''
@@ -53,6 +60,7 @@ const sortedEntries = computed(() => fileEntries.value
     if ((a.type === 'dir') !== (b.type === 'dir')) return a.type === 'dir' ? -1 : 1
     return a.name.localeCompare(b.name, 'zh-CN')
   }))
+const selectedEntries = computed(() => sortedEntries.value.filter(entry => selectedNames.value.includes(entry.name)))
 const activeTransfers = computed(() => transfers.value.filter(item => !item.done))
 
 function notify(message) { emit('notice', message) }
@@ -88,6 +96,12 @@ watch(fileMenu, menu => {
 })
 function openFileMenu(event, entry) {
   if (connectState.value !== 'ready') return
+  if (entry && !selectedNames.value.includes(entry.name)) {
+    selectedNames.value = [entry.name]
+    selectedEntry.value = entry
+  } else if (!entry) {
+    selectedEntry.value = null
+  }
   const width = 220
   const height = entry ? 390 : 220
   fileMenu.value = {
@@ -96,10 +110,108 @@ function openFileMenu(event, entry) {
     y: Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8)),
   }
 }
-function copyEntry(entry, mode) {
-  clipboard.value = { mode, path: joinPath(entry.name), name: entry.name, type: entry.type }
-  notify(mode === 'copy' ? `已复制 ${entry.name}` : `已剪切 ${entry.name}`)
+function selectEntry(entry, event = {}) {
+  const entries = sortedEntries.value
+  if (event.shiftKey && selectedEntry.value) {
+    const from = entries.findIndex(item => item.name === selectedEntry.value.name)
+    const to = entries.findIndex(item => item.name === entry.name)
+    if (from >= 0 && to >= 0) {
+      const [start, end] = from < to ? [from, to] : [to, from]
+      selectedNames.value = entries.slice(start, end + 1).map(item => item.name)
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    selectedNames.value = selectedNames.value.includes(entry.name)
+      ? selectedNames.value.filter(name => name !== entry.name)
+      : [...selectedNames.value, entry.name]
+    selectedEntry.value = entry
+  } else {
+    selectedNames.value = [entry.name]
+    selectedEntry.value = entry
+  }
+  fileRoot.value?.focus({ preventScroll: true })
+}
+function isTextTarget(target) {
+  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
+}
+function pasteLocalFiles(files) {
+  const paths = files.map(file => {
+    try { return window.shellDeck.getPathForFile(file) } catch { return '' }
+  }).filter(Boolean)
+  if (!paths.length) {
+    notify('剪贴板中没有可上传的本地文件')
+    return
+  }
+  uploadPaths(paths)
+}
+function handleFileKeydown(event) {
+  if (isTextTarget(event.target)) return
+  const key = String(event.key || '').toLowerCase()
+  if ((event.ctrlKey || event.metaKey) && key === 'a') {
+    event.preventDefault()
+    selectedNames.value = sortedEntries.value.map(entry => entry.name)
+    selectedEntry.value = sortedEntries.value[0] || null
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && (key === 'c' || key === 'x')) {
+    if (!selectedEntries.value.length) return
+    event.preventDefault()
+    copyEntries(selectedEntries.value, key === 'c' ? 'copy' : 'cut')
+    return
+  }
+  if (key === 'delete' && selectedEntries.value.length) {
+    event.preventDefault()
+    requestDelete(selectedEntries.value)
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && key === 'v' && clipboard.value) {
+    clearTimeout(pasteTimer)
+    pasteTimer = setTimeout(() => { pasteTimer = 0; pasteClipboard() }, 120)
+  }
+}
+function handleFilePaste(event) {
+  if (isTextTarget(event.target)) return
+  const files = Array.from(event.clipboardData?.files || [])
+  if (files.length) {
+    event.preventDefault()
+    clearTimeout(pasteTimer)
+    pasteTimer = 0
+    pasteLocalFiles(files)
+    return
+  }
+  if (clipboard.value) {
+    event.preventDefault()
+    clearTimeout(pasteTimer)
+    pasteTimer = 0
+    pasteClipboard()
+  }
+}
+function activateFileSession(event) {
+  if (isTextTarget(event.target)) return
+  window.__shelldeckActiveFileSession = props.sessionId
+  fileRoot.value?.focus({ preventScroll: true })
+}
+function handleWindowPaste(event) {
+  const targetRoot = event.target instanceof Element ? event.target.closest('.ssh-file-session') : null
+  if (targetRoot) {
+    if (targetRoot !== fileRoot.value) return
+  } else {
+    const active = document.activeElement
+    const focusInside = active === fileRoot.value || Boolean(fileRoot.value?.contains(active))
+    if (window.__shelldeckActiveFileSession !== props.sessionId || !focusInside) return
+  }
+  handleFilePaste(event)
+}
+function copyEntries(entries, mode) {
+  clipboard.value = {
+    mode,
+    entries: entries.map(entry => ({ path: joinPath(entry.name), name: entry.name, type: entry.type })),
+  }
+  notify(mode === 'copy' ? `已复制 ${entries.length} 项` : `已剪切 ${entries.length} 项`)
   closeFileMenu()
+}
+function copyEntry(entry, mode) {
+  const entries = selectedNames.value.includes(entry.name) ? selectedEntries.value : [entry]
+  copyEntries(entries.length ? entries : [entry], mode)
 }
 async function copyEntryPath(entry) {
   try {
@@ -161,27 +273,57 @@ function uniqueCopyName(name, type) {
   }
   return candidate
 }
-function pasteClipboard() {
+async function executePaste(ops, overwrite) {
+  const clip = clipboard.value
+  fileBusy.value = true
+  try {
+    for (const op of ops) {
+      if (clip.mode === 'cut') await api.move(props.sessionId, op.path, op.target, overwrite)
+      else await api.copy(props.sessionId, op.path, op.target, overwrite)
+    }
+    if (clip.mode === 'cut') clipboard.value = null
+    selectedNames.value = []
+    await loadFiles(filePath.value)
+    notify(clip.mode === 'cut' ? `已移动 ${ops.length} 项` : `已粘贴 ${ops.length} 项`)
+  } catch (error) {
+    notify(error.message || '粘贴失败')
+  } finally {
+    fileBusy.value = false
+  }
+}
+
+async function pasteClipboard() {
   const clip = clipboard.value
   closeFileMenu()
   if (!clip) return
-  let name = clip.name
-  let target = joinPath(name)
-  if (clip.path === target) {
-    if (clip.mode === 'cut') {
-      notify('该文件已经在当前目录')
+  const ops = []
+  for (const entry of clip.entries || []) {
+    let name = entry.name
+    let target = joinPath(name)
+    if (entry.path === target) {
+      if (clip.mode === 'cut') continue
+      name = uniqueCopyName(entry.name, entry.type)
+      target = joinPath(name)
+    }
+    ops.push({ ...entry, name, target })
+  }
+  if (!ops.length) {
+    notify(clip.mode === 'cut' ? '这些项目已经在当前目录' : '没有可粘贴的项目')
+    return
+  }
+  try {
+    const existing = await api.statMany(props.sessionId, filePath.value, ops.map(op => op.name))
+    if (existing.length) {
+      overwriteDialog.value = {
+        label: '粘贴',
+        run: async () => executePaste(ops, true),
+      }
       return
     }
-    name = uniqueCopyName(clip.name, clip.type)
-    target = joinPath(name)
+    await executePaste(ops, false)
+  } catch (error) {
+    notify(error.message || '粘贴失败')
   }
-  runWithOverwrite('粘贴', overwrite => clip.mode === 'cut'
-    ? api.move(props.sessionId, clip.path, target, overwrite)
-    : api.copy(props.sessionId, clip.path, target, overwrite), async () => {
-    if (clip.mode === 'cut') clipboard.value = null
-    await loadFiles(filePath.value)
-    notify(clip.mode === 'cut' ? '已移动' : `已粘贴为 ${name}`)
-  })
 }
 function moveEntry(entry) {
   closeFileMenu()
@@ -267,6 +409,8 @@ function closeFileSession() {
 async function loadFiles(target) {
   closeFileMenu()
   pathEditing.value = false
+  selectedEntry.value = null
+  selectedNames.value = []
   if (connectState.value !== 'ready') return
   fileBusy.value = true
   fileError.value = ''
@@ -321,6 +465,13 @@ async function enterEntry(entry) {
 function rowDoubleClick(entry, event) {
   if (event.target instanceof Element && event.target.closest('.ssh-fileactions')) return
   if (entry.type === 'dir' || entry.type === 'link') enterEntry(entry)
+}
+function handleEntryClick(entry, event) {
+  if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    selectEntry(entry, event)
+    return
+  }
+  enterEntry(entry)
 }
 
 async function toggleSudo(event) {
@@ -502,6 +653,8 @@ async function editFile(entry) {
   editor.value = { open: true, path: joinPath(entry.name), name: entry.name, content: '', busy: true }
   try {
     editor.value.content = await api.read(props.sessionId, joinPath(entry.name))
+    await nextTick()
+    editorTextarea.value?.focus()
   } catch (error) {
     editor.value.open = false
     notify(error.message || '读取失败')
@@ -553,15 +706,23 @@ function renameEntry(entry) {
     catch (error) { notify(error.message || '重命名失败') }
   })
 }
+function requestDelete(entries) {
+  deleteTargets.value = (Array.isArray(entries) ? entries : [entries]).filter(Boolean)
+}
 async function confirmDelete() {
-  const entry = deleteFile.value
-  deleteFile.value = null
-  if (!entry) return
+  const targets = deleteTargets.value
+  deleteTargets.value = []
+  if (!targets.length) return
+  fileBusy.value = true
   try {
-    await api.remove(props.sessionId, joinPath(entry.name), entry.type === 'dir')
+    for (const entry of targets) await api.remove(props.sessionId, joinPath(entry.name), entry.type === 'dir')
+    selectedNames.value = []
     await loadFiles(filePath.value)
+    notify(`已删除 ${targets.length} 项`)
   } catch (error) {
     notify(error.message || '删除失败')
+  } finally {
+    fileBusy.value = false
   }
 }
 function openPerm(entry) {
@@ -612,6 +773,25 @@ function fileIcon(entry) {
   return '≡'
 }
 
+watch(() => nameDialog.value.open, open => {
+  if (!open) return
+  nextTick(() => {
+    nameInputRef.value?.focus()
+    nameInputRef.value?.select()
+  })
+})
+watch(() => permDialog.value.open, open => {
+  if (!open) return
+  nextTick(() => {
+    permInputRef.value?.focus()
+    permInputRef.value?.select()
+  })
+})
+watch(() => sudoPrompt.value.open, open => {
+  if (!open) return
+  nextTick(() => sudoInputRef.value?.focus())
+})
+
 watch(showHidden, value => {
   try { localStorage.setItem('shelldeck-show-hidden', value ? '1' : '0') } catch { /* storage unavailable */ }
 })
@@ -635,11 +815,15 @@ onMounted(() => {
       notify(payload.message || '传输失败')
     }),
   ]
+  window.addEventListener('paste', handleWindowPaste, true)
   connectFiles()
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('paste', handleWindowPaste, true)
+  if (window.__shelldeckActiveFileSession === props.sessionId) window.__shelldeckActiveFileSession = ''
   unbindFileMenu()
   closeFileMenu()
+  clearTimeout(pasteTimer)
   for (const off of unsubscribers) { try { off() } catch { /* gone */ } }
   unsubscribers = []
   for (const timer of transferTimers.values()) clearTimeout(timer)
@@ -649,7 +833,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="ssh-file-session">
+  <div ref="fileRoot" class="ssh-file-session" tabindex="-1" @keydown="handleFileKeydown" @pointerdown="activateFileSession">
     <div class="ssh-filepathbar">
       <div class="ssh-pathmain">
         <div v-if="!pathEditing" class="ssh-crumbbar" title="点击空白处编辑路径" @click="beginPathEdit">
@@ -705,8 +889,8 @@ onBeforeUnmount(() => {
           </tr>
           <tr v-else-if="fileBusy && !sortedEntries.length"><td colspan="5" class="ssh-fileempty">正在读取…</td></tr>
           <tr v-else-if="!sortedEntries.length"><td colspan="5" class="ssh-fileempty">{{ hiddenCount && !showHidden ? '目录只有隐藏项，勾选“显示隐藏文件”查看' : '目录为空' }}</td></tr>
-          <tr v-for="entry in sortedEntries" :key="entry.name" @contextmenu.prevent.stop="openFileMenu($event, entry)" @dblclick="rowDoubleClick(entry, $event)">
-            <td><button type="button" class="ssh-filebtn" :title="entry.type === 'link' ? '符号链接，点击打开目标' : entry.name" @click="enterEntry(entry)"><span>{{ fileIcon(entry) }}</span>{{ entry.name }}</button></td>
+          <tr v-for="entry in sortedEntries" :key="entry.name" :class="{ selected: selectedNames.includes(entry.name) }" @click="selectEntry(entry, $event)" @contextmenu.prevent.stop="openFileMenu($event, entry)" @dblclick="rowDoubleClick(entry, $event)">
+            <td><button type="button" class="ssh-filebtn" :title="entry.type === 'link' ? '符号链接，点击打开目标' : entry.name" @click="handleEntryClick(entry, $event)"><span>{{ fileIcon(entry) }}</span>{{ entry.name }}</button></td>
             <td>{{ entry.type === 'dir' ? '—' : formatSize(entry.size) }}</td>
             <td>{{ formatTime(entry.mtime) }}</td>
             <td class="ssh-filemode" :title="entry.modeText || ''">{{ modeText(entry) }}</td>
@@ -715,7 +899,7 @@ onBeforeUnmount(() => {
               <button v-if="entry.type === 'file'" type="button" class="ssh-link" @click="editFile(entry)">编辑</button>
               <button type="button" class="ssh-link" @click="openPerm(entry)">权限</button>
               <button type="button" class="ssh-link" @click="renameEntry(entry)">重命名</button>
-              <button type="button" class="ssh-link danger" @click="deleteFile = entry">删除</button>
+              <button type="button" class="ssh-link danger" @click.stop="requestDelete([entry])">删除</button>
             </td>
           </tr>
         </tbody>
@@ -750,7 +934,7 @@ onBeforeUnmount(() => {
           <button type="button" :disabled="fileBusy" @click="moveEntry(fileMenu.entry)">移动到…</button>
           <button type="button" :disabled="fileBusy" @click="renameEntry(fileMenu.entry); closeFileMenu()">重命名</button>
           <button type="button" :disabled="fileBusy" @click="openPerm(fileMenu.entry); closeFileMenu()">权限</button>
-          <button type="button" class="danger" :disabled="fileBusy" @click="deleteFile = fileMenu.entry; closeFileMenu()">删除</button>
+          <button type="button" class="danger" :disabled="fileBusy" @click="requestDelete(selectedNames.includes(fileMenu.entry.name) ? selectedEntries : [fileMenu.entry]); closeFileMenu()">删除</button>
           <div class="context-menu-sep"></div>
           <button type="button" @click="refreshFiles">刷新</button>
         </template>
@@ -771,7 +955,7 @@ onBeforeUnmount(() => {
           <button class="um-close" aria-label="关闭" @click="cancelSudo">×</button>
           <h2>sudo 密码不正确</h2>
           <p>已尝试服务器信息中保存的密码。请输入正确的 sudo 密码，仅用于本次 root 文件会话。</p>
-          <label class="ssh-sudo-password">密码<input v-model="sudoPrompt.password" type="text" autocomplete="off" @keydown.enter.prevent="retrySudo" /></label>
+          <label class="ssh-sudo-password">密码<input ref="sudoInputRef" v-model="sudoPrompt.password" type="text" autocomplete="off" @keydown.enter.prevent="retrySudo" /></label>
           <p v-if="sudoPrompt.error" class="form-error">{{ sudoPrompt.error }}</p>
           <div class="um-dialog-actions">
             <button type="button" @click="cancelSudo">取消</button>
@@ -800,7 +984,7 @@ onBeforeUnmount(() => {
           <div class="ssh-permpresets">
             <button v-for="value in ['644', '755', '600', '700']" :key="value" type="button" class="pv-pick" :class="{ active: permDialog.mode === value }" @click="presetPerm(value)">{{ value }}</button>
           </div>
-          <label class="ssh-perminput">权限值（八进制）<input v-model="permDialog.mode" maxlength="3" inputmode="numeric" placeholder="644" @keydown.enter.prevent="applyPerm" /></label>
+          <label class="ssh-perminput">权限值（八进制）<input ref="permInputRef" v-model="permDialog.mode" maxlength="3" inputmode="numeric" placeholder="644" @keydown.enter.prevent="applyPerm" /></label>
           <label v-if="permDialog.dir" class="ssh-permscope"><input v-model="permDialog.recursive" type="checkbox" />同时应用到所有子文件和子目录</label>
           <p class="ssh-permhint">目录会自动保留可进入的执行权限；子项很多时可能需要稍等。</p>
           <p v-if="permDialog.error" class="ssh-error">{{ permDialog.error }}</p>
@@ -837,7 +1021,7 @@ onBeforeUnmount(() => {
       <div v-if="nameDialog.open" class="um-overlay">
         <section class="um-dialog ssh-name-dialog" role="dialog" aria-modal="true">
           <h2>{{ nameDialog.title }}</h2>
-          <input v-model="nameDialog.value" class="ssh-nameinput" maxlength="255" @keydown.enter="confirmName" />
+          <input ref="nameInputRef" v-model="nameDialog.value" class="ssh-nameinput" maxlength="255" @keydown.enter="confirmName" />
           <div class="um-dialog-actions">
             <button type="button" @click="nameDialog.open = false">取消</button>
             <button type="button" class="um-primary" @click="confirmName">确定</button>
@@ -845,12 +1029,13 @@ onBeforeUnmount(() => {
         </section>
       </div>
 
-      <div v-if="deleteFile" class="um-overlay">
+      <div v-if="deleteTargets.length" class="um-overlay">
         <section class="um-dialog ssh-name-dialog" role="dialog" aria-modal="true">
-          <h2>删除 {{ deleteFile.type === 'dir' ? '文件夹' : '文件' }}</h2>
-          <p class="ssh-deletemsg">{{ deleteFile.name }}<span v-if="deleteFile.type === 'dir'">，文件夹内的全部内容也会删除。</span></p>
+          <h2>删除{{ deleteTargets.length > 1 ? ` ${deleteTargets.length} 项` : deleteTargets[0].type === 'dir' ? '文件夹' : '文件' }}</h2>
+          <p v-if="deleteTargets.length === 1" class="ssh-deletemsg">{{ deleteTargets[0].name }}<span v-if="deleteTargets[0].type === 'dir'">，文件夹内的全部内容也会删除。</span></p>
+          <p v-else class="ssh-deletemsg">选中的 {{ deleteTargets.length }} 个项目，文件夹内的全部内容也会删除。</p>
           <div class="um-dialog-actions">
-            <button type="button" @click="deleteFile = null">取消</button>
+            <button type="button" @click="deleteTargets = []">取消</button>
             <button type="button" class="um-danger-button" @click="confirmDelete">删除</button>
           </div>
         </section>

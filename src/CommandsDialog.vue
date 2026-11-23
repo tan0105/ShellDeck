@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 const props = defineProps({
   open: Boolean,
@@ -10,6 +10,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save', 'remove', 'import', 'export'])
 
 const form = reactive({ id: '', name: '', kind: 'command', body: '' })
+const searchInput = ref(null)
+const nameInput = ref(null)
 const editing = ref(false)
 const pendingDelete = ref(null)
 const localError = ref('')
@@ -31,6 +33,7 @@ watch(() => props.open, open => {
   reset()
   query.value = ''
   pendingDelete.value = null
+  nextTick(() => searchInput.value?.focus())
 })
 watch(() => props.commands, () => {
   if (!editing.value) return
@@ -41,6 +44,10 @@ function reset() {
   Object.assign(form, { id: '', name: '', kind: 'command', body: '' })
   editing.value = false
   localError.value = ''
+}
+function startNew() {
+  reset()
+  nextTick(() => nameInput.value?.focus())
 }
 function edit(command) {
   Object.assign(form, { id: command.id, name: command.name, kind: command.kind, body: command.body })
@@ -78,10 +85,10 @@ function confirmRemove() {
               <div class="cd-listtools">
                 <button type="button" class="ssh-softbtn" :disabled="busy" @click="emit('import')">导入</button>
                 <button type="button" class="ssh-softbtn" :disabled="busy || !commands.length" @click="emit('export')">导出</button>
-                <button type="button" class="ssh-softbtn" @click="reset">＋ 新建</button>
+                <button type="button" class="ssh-softbtn" @click="startNew">＋ 新建</button>
               </div>
             </div>
-            <input v-model="query" class="cd-search" type="search" placeholder="搜索名称或内容" spellcheck="false" />
+            <input ref="searchInput" v-model="query" class="cd-search" type="search" placeholder="搜索名称或内容" spellcheck="false" />
             <div class="cd-items">
               <button v-for="command in filteredCommands" :key="command.id" type="button" class="cd-item" :class="{ active: form.id === command.id }" @click="edit(command)">
                 <span class="cd-kind">{{ command.kind === 'script' ? '脚本' : '命令' }}</span>
@@ -93,7 +100,7 @@ function confirmRemove() {
             </div>
           </div>
           <div class="cd-editor">
-            <label class="sd-field">名称<input v-model="form.name" maxlength="60" placeholder="例如：查看磁盘" /></label>
+            <label class="sd-field">名称<input ref="nameInput" v-model="form.name" maxlength="60" placeholder="例如：查看磁盘" /></label>
             <label class="sd-field">类型<select v-model="form.kind"><option value="command">命令</option><option value="script">脚本</option></select></label>
             <label class="sd-field">内容<textarea v-model="form.body" class="cd-body" spellcheck="false" placeholder="df -h&#10;或包含 {{参数}} 的指令"></textarea></label>
             <p class="ssl-hint">支持 &#123;&#123;参数名&#125;&#125;，执行前会弹窗填写。</p>

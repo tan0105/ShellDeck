@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 const props = defineProps({
   open: Boolean,
@@ -15,6 +15,7 @@ const form = reactive({
   authType: 'password', privateKey: '', passphrase: '',
   note: '', tags: [], strictHostKey: true,
 })
+const nameInput = ref(null)
 const newTag = ref('')
 const tagSearch = ref('')
 const localError = ref('')
@@ -47,6 +48,10 @@ watch(() => props.open, open => {
   newTag.value = ''
   tagSearch.value = ''
   localError.value = ''
+  nextTick(() => {
+    nameInput.value?.focus()
+    nameInput.value?.select()
+  })
 })
 
 function toggleTag(tag) {
@@ -106,7 +111,7 @@ function submit() {
         <h2>{{ server ? '编辑服务器' : '新建服务器' }}</h2>
         <p class="sd-sub">密码、私钥明文保存在本机数据库，请妥善保管数据目录。</p>
         <div class="sd-form">
-          <label class="sd-row"><span>名称</span><input v-model="form.name" maxlength="60" placeholder="例如：内网测试机" @keydown.enter.prevent="submit" /></label>
+          <label class="sd-row"><span>名称</span><input ref="nameInput" v-model="form.name" maxlength="60" placeholder="例如：内网测试机" @keydown.enter.prevent="submit" /></label>
           <label class="sd-row"><span>主机</span><input v-model="form.host" maxlength="255" placeholder="IP 或域名" @keydown.enter.prevent="submit" /></label>
           <label class="sd-row"><span>端口</span><input v-model="form.port" type="number" min="1" max="65535" @keydown.enter.prevent="submit" /></label>
           <label class="sd-row"><span>账号</span><input v-model="form.username" maxlength="120" @keydown.enter.prevent="submit" /></label>
