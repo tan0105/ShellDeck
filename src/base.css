@@ -400,7 +400,7 @@
 .ssh-editor-shell{display:flex;flex:1;min-height:320px;border:1px solid #e4e8ef;border-radius:7px;background:#fff;overflow:hidden}
 .ssh-editor-shell:focus-within{border-color:#8299ee;box-shadow:0 0 0 3px #4169e910}
 .ssh-editor-lines{flex:none;margin:0;padding:12px 9px;min-width:52px;overflow:hidden;background:#f7f9fc;border-right:1px solid #eef1f5;color:#9aa6b8;font:13px/1.65 ui-monospace,Consolas,monospace;text-align:right;user-select:none;white-space:pre}
-.ssh-editor{flex:1;min-width:0;min-height:0;height:100%;border:0;border-radius:0;padding:12px;font:13px/1.65 ui-monospace,Consolas,monospace;outline:none;resize:none;color:#202b3c;background:transparent;white-space:pre;overflow:auto}
+.ssh-editor{flex:1;min-width:0;min-height:0;height:auto;align-self:stretch;border:0;border-radius:0;padding:12px;font:13px/1.65 ui-monospace,Consolas,monospace;outline:none;resize:none;color:#202b3c;background:transparent;white-space:pre;overflow:auto}
 .ssh-editor:focus{box-shadow:none}
 .ssh-name-dialog{width:min(420px,calc(100vw - 32px))}
 .ssh-nameinput{width:100%;height:38px;border:1px solid #e4e8ef;border-radius:6px;padding:0 10px;font-size:13px;outline:none;margin:4px 0 6px}

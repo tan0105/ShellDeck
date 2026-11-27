@@ -678,7 +678,14 @@ async function editFile(entry) {
   try {
     editor.value.content = await api.read(props.sessionId, joinPath(entry.name))
     await nextTick()
-    editorTextarea.value?.focus()
+    const textarea = editorTextarea.value
+    if (textarea) {
+      textarea.setSelectionRange(0, 0)
+      textarea.scrollTop = 0
+      textarea.scrollLeft = 0
+      textarea.focus()
+      syncEditorScroll()
+    }
   } catch (error) {
     editor.value.open = false
     notify(error.message || '读取失败')

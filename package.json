@@ -1,6 +1,6 @@
 {
   "name": "shelldeck",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "description": "Windows 便携 SSH/SFTP 桌面工作台",
   "author": "ShellDeck",
@@ -13,7 +13,8 @@
     "icons": "node scripts/make-icons.cjs",
     "release": "node scripts/make-release.cjs",
     "dist": "npm run build:web && node scripts/prune-native.cjs && electron-builder --win dir && node scripts/package-folder.cjs",
-    "e2e": "node scripts/e2e.cjs"
+    "e2e": "node scripts/e2e.cjs",
+    "test:editor": "node scripts/e2e-file-editor.cjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.2.0",
